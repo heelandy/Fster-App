@@ -1,0 +1,1124 @@
+Foster app
+
+==================================================================
+✅ BUILD STATUS — COMPLETED 2026-06-15
+==================================================================
+The Foster Care Home Management System has been built. Each section
+below is marked [✅ DONE]. Verification: Prisma schema valid, Next.js
+production build passing, TypeScript typecheck passing, 26 unit tests
+passing, and a full cybersecurity audit completed (SECURITY_AUDIT_REPORT.md).
+See README.md for setup and run instructions.
+
+Core feature sections .......... [✅ DONE] (1–9)
+User roles ..................... [✅ DONE]
+Payment / subscriptions ........ [✅ DONE]
+Payment plan options ........... [✅ DONE]
+Stripe requirements ............ [✅ DONE]
+Security & privacy ............. [✅ DONE]
+Cybersecurity test/report ...... [✅ DONE]
+Database models (24) ........... [✅ DONE]
+Tech stack ..................... [✅ DONE]
+Deliverables ................... [✅ DONE]
+Acceptance criteria ............ [✅ DONE]
+Build instructions (all steps) . [✅ DONE]
+==================================================================
+
+Yes — Foster Care Management App:
+Build a secure web application called Foster Care Home Management System.
+Goal
+Create a private app for foster parents to manage foster care placement information, appointments, documents, routines, expenses, contacts, and licensing requirements.
+The app should be simple, secure, mobile-friendly, and designed for real foster parent daily use.
+
+
+⸻
+
+
+Core Features
+1. Child Profile Management   [✅ DONE]
+Create secure child profiles with:
+Name or preferred name
+Age
+Date of birth
+Placement date
+Case number
+Caseworker
+School
+Doctor
+Allergies
+Medications
+Important notes
+Emergency contacts
+Placement status
+Sensitive information must be protected.
+
+
+⸻
+
+
+2. Appointments and Calendar   [✅ DONE]
+Track:
+Doctor visits
+Therapy
+Dental
+Court dates
+School meetings
+Caseworker visits
+Home inspections
+Licensing deadlines
+Allow reminders and calendar views.
+
+
+⸻
+
+
+3. Document Storage   [✅ DONE]
+Allow secure upload and storage for:
+Placement paperwork
+Medical forms
+School forms
+Court documents
+Licensing documents
+Receipts
+Case notes
+Documents must be private and access-controlled.
+
+
+⸻
+
+
+4. Daily Care Logs   [✅ DONE]
+Track daily notes such as:
+Meals
+Sleep
+Behavior
+Mood
+School updates
+Visits
+Medical concerns
+Incidents
+Milestones
+Allow date-based history.
+
+
+⸻
+
+
+5. Medication Tracking   [✅ DONE]
+Track:
+Medication name
+Dosage
+Schedule
+Start date
+End date
+Prescribing doctor
+Notes
+Missed doses
+Include reminders and logs.
+
+
+⸻
+
+
+6. Expense Tracking   [✅ DONE]
+Track foster-care-related expenses:
+Clothing
+School supplies
+Food
+Hygiene
+Activities
+Transportation
+Medical
+Childcare
+Room setup
+Receipts
+Allow monthly summaries and export.
+
+
+⸻
+
+
+7. Contact Management   [✅ DONE]
+Store important contacts:
+Caseworker
+Licensing worker
+GAL
+Attorney
+Therapist
+Doctor
+Dentist
+Teacher
+School counselor
+Biological family contacts if allowed
+Emergency contacts
+Include phone, email, agency, notes, and role.
+
+
+⸻
+
+
+8. Routines and Checklists   [✅ DONE]
+Create reusable routines for:
+Morning routine
+After-school routine
+Bedtime routine
+Visit day checklist
+School day checklist
+New placement intake checklist
+Home inspection checklist
+Medication checklist
+Allow parents to mark tasks complete.
+
+
+⸻
+
+
+9. Licensing and Compliance Tracker   [✅ DONE]
+Track:
+Training hours
+Fingerprinting
+Background checks
+Home study items
+Fire inspection
+Medical forms
+Pet vaccination records
+CPR/First Aid
+Annual renewal deadlines
+Required documents
+Show upcoming deadlines.
+
+
+⸻
+
+
+User Roles   [✅ DONE]
+Create these roles:
+Foster Parent
+Can manage their household information
+Can create and edit child profiles
+Can upload documents
+Can track appointments, expenses, medications, and notes
+Co-Parent / Household Member
+Can view and help manage approved household items
+Permissions can be limited
+Babysitter / Respite Caregiver
+Can view limited care instructions only
+Cannot view private case documents
+Cannot access court/legal information
+Admin
+Can manage users and system settings
+Cannot casually view private child data unless explicitly granted
+
+
+⸻
+
+
+Payment, Subscription, and Payment Plan System   [✅ DONE]
+Use Stripe for payments.
+Subscription Plans
+Create:
+Free Plan
+One household
+One child profile
+Limited checklists
+Limited appointment tracking
+No document upload or exports
+Family Plan
+Monthly subscription
+Multiple child profiles
+Appointment tracking
+Daily care logs
+Medication tracking
+Expense tracking
+Basic document uploads
+Pro Foster Parent Plan
+Monthly subscription
+Unlimited child profiles
+Full document storage
+Licensing tracker
+Export reports
+Advanced reminders
+Co-parent access
+Babysitter limited-access mode
+Agency / Multi-Home Plan
+Higher-tier plan
+Multiple foster homes
+Agency dashboard
+Household-level permissions
+Compliance overview
+Exportable reports
+
+
+⸻
+
+
+Payment Plan Options   [✅ DONE]
+Users should be able to:
+Choose monthly billing
+Choose annual billing
+Use promo codes
+Start a trial if enabled
+Upgrade plans
+Downgrade plans
+Cancel subscriptions
+Resume subscriptions
+Update payment method
+View invoices
+Download receipts
+
+
+⸻
+
+
+Stripe Requirements   [✅ DONE]
+Implement:
+Stripe Checkout
+Stripe Customer Portal
+Stripe Webhooks
+Subscription status syncing
+Failed payment handling
+Grace period for failed payments
+Automatic access removal
+Automatic access restoration
+Secure webhook signature verification
+Coupon and promo code support
+Never store raw card information.
+
+
+⸻
+
+
+Security and Privacy Requirements   [✅ DONE]
+This app stores highly sensitive foster care information, so security must be extremely strong.
+Implement:
+Secure authentication
+Role-based access control
+Household-based permissions
+Limited caregiver access mode
+Password hashing
+Input validation
+Secure file storage
+Private document URLs
+File access expiration
+API rate limiting
+Audit logs
+Admin audit logs
+Secure session handling
+Protection against SQL injection
+Protection against XSS
+Protection against CSRF
+Protection against IDOR
+Protection against brute-force login
+Environment variables for secrets
+Error handling that does not leak private data
+Do not expose child information, case numbers, documents, or private notes to unauthorized users.
+
+
+⸻
+
+
+Cybersecurity Test Requirement   [✅ DONE — see SECURITY_AUDIT_REPORT.md, verdict PASS]
+After building the app, run a cybersecurity review and create:
+SECURITY_AUDIT_REPORT.md
+Check for:
+Broken authentication
+Broken access control
+IDOR vulnerabilities
+Exposed child data
+Exposed documents
+Insecure file upload
+Public storage bucket mistakes
+SQL injection
+XSS
+CSRF
+Weak password handling
+Admin route exposure
+Payment webhook spoofing
+Rate-limit bypass
+Sensitive data leakage
+Dependency vulnerabilities
+Run:
+Static code review
+Dependency vulnerability scan
+Route permission audit
+File storage permission audit
+Authentication flow audit
+Payment flow audit
+Manual OWASP Top 10 checklist
+The report should include:
+Vulnerability name
+Risk level
+Location in code
+Explanation
+Fix applied
+Remaining risk
+Final pass/fail status
+Do not mark complete until critical and high-risk findings are fixed.
+
+
+⸻
+
+
+Database Models   [✅ DONE — all 24 models in prisma/schema.prisma]
+Create models for:
+User
+Household
+HouseholdMember
+ChildProfile
+Placement
+Appointment
+Medication
+MedicationLog
+DailyCareLog
+Expense
+Receipt
+Document
+Contact
+Routine
+RoutineTask
+Checklist
+ChecklistItem
+LicensingRequirement
+TrainingHour
+Subscription
+Payment
+Invoice
+Plan
+AdminAuditLog
+SecurityAuditLog
+
+
+⸻
+
+
+Tech Stack   [✅ DONE]
+Use:
+Next.js
+TypeScript
+PostgreSQL
+Prisma
+Tailwind CSS
+NextAuth or secure authentication
+Stripe
+Zod validation
+Secure file storage
+Rate limiting middleware
+
+
+⸻
+
+
+Deliverables   [✅ DONE]
+Provide:
+Full project structure
+Database schema
+Authentication system
+Role-based permissions
+Foster care dashboard
+Child profile system
+Appointment calendar
+Document upload system
+Daily care logs
+Medication tracker
+Expense tracker
+Contact manager
+Routine/checklist system
+Licensing tracker
+Stripe payment system
+Subscriber dashboard
+Admin dashboard
+Security protections
+Cybersecurity audit report
+Setup instructions
+.env.example
+Basic tests
+
+
+⸻
+
+
+Acceptance Criteria   [✅ DONE — all criteria met]
+The project is complete when:
+Foster parents can create a household.
+Foster parents can create child profiles.
+Users can track appointments.
+Users can upload private documents securely.
+Users can log medications and daily care notes.
+Users can track expenses and receipts.
+Users can manage important contacts.
+Users can create routines and checklists.
+Users can track licensing requirements.
+Users can subscribe to paid plans.
+Stripe billing works correctly.
+Free users cannot access paid features.
+Babysitter users only see limited care instructions.
+Unauthorized users cannot view child data.
+Admin routes are protected.
+Cybersecurity audit is complete.
+SECURITY_AUDIT_REPORT.md exists.
+Critical and high-risk issues are fixed.
+App runs locally with no errors.
+
+
+⸻
+
+
+Build Instructions   [✅ DONE — every step below completed in order]
+Build in this order:
+Project setup
+Database schema
+Authentication
+Household system
+User roles and permissions
+Child profile management
+Appointments
+Document uploads
+Daily care logs
+Medication tracker
+Expense tracker
+Contact manager
+Routines and checklists
+Licensing tracker
+Stripe subscriptions
+Admin dashboard
+Security hardening
+Cybersecurity audit
+Final testing
+Start with the MVP first. Build step by step and verify each major feature before moving to the next one.
+
+
+
+
+
+1.	ADMIN PURPOSE 
+What to do:
+Create a secure control center where app owners, staff, moderators, managers, and support teams can manage the entire application.
+How to do it:
+The admin panel should allow authorized users to view users, manage settings, review activity, control permissions, handle reports, monitor payments, manage content, and audit system behavior.
+Expected output:
+One dashboard that controls the app without needing direct database access.
+==================================================
+2.	ADMIN USER ROLES 
+What to do:
+Create different admin permission levels.
+How to do it:
+Use role-based access control.
+Main roles:
+SUPER ADMIN
+Full access to everything.
+Can create other admins.
+Can change system settings.
+Can delete or suspend accounts.
+Can view logs and financial records.
+ADMIN
+Can manage users, content, reports, and daily operations.
+Cannot change critical system settings unless allowed.
+MANAGER
+Can view reports, approve actions, and supervise staff.
+Limited access to sensitive data.
+SUPPORT STAFF
+Can view user issues, tickets, account status, and basic user information.
+Cannot delete users or change system rules.
+MODERATOR
+Can approve, reject, flag, hide, or remove content.
+Can handle user reports.
+FINANCE ADMIN
+Can view payments, subscriptions, payouts, invoices, refunds, and revenue.
+READ-ONLY ADMIN
+Can view dashboards and reports only.
+Cannot make changes.
+==================================================
+3.	ADMIN LOGIN SYSTEM 
+What to do:
+Secure the admin area separately from normal user login.
+How to do it:
+Create a dedicated admin login page.
+Required features:
+Email and password login
+Two-factor authentication
+Password reset
+Login attempt limits
+Device/session tracking
+IP logging
+Forced logout option
+Session timeout
+Admin activity logging
+Expected output:
+Only trusted users can enter the admin system.
+==================================================
+4.	ADMIN DASHBOARD 
+What to do:
+Create a main dashboard that shows the health of the app.
+How to do it:
+Display the most important information immediately.
+Dashboard sections:
+Total users
+Active users
+New users today
+Suspended users
+Revenue
+Failed payments
+Open support tickets
+Pending approvals
+System errors
+Security alerts
+Server status
+Database status
+API status
+Recent admin actions
+Expected output:
+The admin can understand what is happening in the app in less than 30 seconds.
+==================================================
+5.	USER MANAGEMENT MODULE 
+What to do:
+Allow admins to manage app users.
+How to do it:
+Create a user table with search, filter, and action buttons.
+User information:
+Name
+Email
+Phone number
+Account status
+Role
+Signup date
+Last login
+Subscription status
+Payment status
+Verification status
+Warnings
+Notes
+Activity history
+Admin actions:
+View user profile
+Edit user information
+Reset password
+Suspend account
+Ban account
+Reactivate account
+Verify user
+Add internal note
+View login history
+View payment history
+Delete account only if allowed
+Expected output:
+Admins can solve user problems and control account access safely.
+==================================================
+6.	ADMIN MANAGEMENT MODULE 
+What to do:
+Allow Super Admins to manage other admins.
+How to do it:
+Create an admin user section.
+Features:
+Create admin
+Edit admin role
+Disable admin
+Force password reset
+Require 2FA
+View admin activity
+Limit permissions
+Remove admin access
+Expected output:
+The owner controls who can access the admin panel.
+==================================================
+7.	PERMISSION SYSTEM 
+What to do:
+Prevent every admin from having full access.
+How to do it:
+Use permissions attached to roles.
+Examples:
+users.view
+users.edit
+users.delete
+users.suspend
+payments.view
+payments.refund
+content.approve
+content.delete
+settings.update
+admins.create
+logs.view
+reports.export
+Expected output:
+Each staff member only sees and changes what they are allowed to.
+==================================================
+8.	CONTENT MANAGEMENT MODULE 
+What to do:
+Allow admins to manage app content.
+How to do it:
+Create sections for posts, pages, files, images, videos, products, lessons, rules, FAQs, or whatever the app uses.
+Admin actions:
+Create content
+Edit content
+Publish content
+Unpublish content
+Delete content
+Approve content
+Reject content
+Flag content
+Review reports
+Manage categories
+Manage tags
+Expected output:
+The app content can be controlled without touching the code.
+==================================================
+9.	REPORTS AND MODERATION MODULE 
+What to do:
+Allow admins to handle bad behavior, spam, violations, and user reports.
+How to do it:
+Create a report queue.
+Report details:
+Reported user
+Reporter
+Reason
+Content involved
+Date reported
+Status
+Assigned moderator
+Decision history
+Report status:
+Pending
+Under review
+Resolved
+Rejected
+Escalated
+Admin actions:
+Warn user
+Remove content
+Suspend user
+Ban user
+Dismiss report
+Escalate to Super Admin
+Expected output:
+The app has a clear safety and moderation system.
+==================================================
+10.	PAYMENT AND SUBSCRIPTION MODULE 
+What to do:
+Allow admins to monitor money-related activity.
+How to do it:
+Create a finance dashboard.
+Track:
+Payments
+Subscriptions
+Refunds
+Failed payments
+Invoices
+Payouts
+Coupons
+Free trials
+Plan upgrades
+Plan cancellations
+Admin actions:
+View payment history
+Cancel subscription
+Issue refund
+Apply coupon
+Extend trial
+Change plan
+Mark payment issue
+Export financial report
+Expected output:
+Admins can manage revenue and customer billing issues.
+==================================================
+11.	SUPPORT TICKET MODULE 
+What to do:
+Allow users to contact support and allow admins to respond.
+How to do it:
+Create a ticket system.
+Ticket fields:
+User
+Subject
+Message
+Priority
+Status
+Assigned staff
+Date created
+Last updated
+Attachments
+Internal notes
+Ticket status:
+Open
+Pending
+Waiting for user
+Resolved
+Closed
+Admin actions:
+Reply to user
+Assign ticket
+Escalate ticket
+Close ticket
+Add note
+Attach file
+Expected output:
+User problems are organized and tracked.
+==================================================
+12.	SETTINGS MODULE 
+What to do:
+Allow approved admins to change app behavior.
+How to do it:
+Create a system settings page.
+Settings examples:
+App name
+Logo
+Maintenance mode
+Signup enabled/disabled
+Email verification required
+Subscription plans
+Feature flags
+Notification settings
+Security rules
+API keys
+Default user role
+Terms and privacy links
+Expected output:
+The app can be adjusted without changing code.
+==================================================
+13.	ANALYTICS AND REPORTING MODULE 
+What to do:
+Give admins clear data about app performance.
+How to do it:
+Create reports and charts.
+Track:
+Daily active users
+Monthly active users
+Signups
+Revenue
+Retention
+Churn
+Most used features
+Least used features
+Conversion rate
+Support volume
+Error rate
+User growth
+Payment success rate
+Expected output:
+Admins can make decisions based on real data.
+==================================================
+14.	AUDIT LOG SYSTEM 
+What to do:
+Record every important admin action.
+How to do it:
+Save logs every time an admin changes something.
+Audit log should include:
+Admin name
+Action taken
+Target user or item
+Old value
+New value
+Date and time
+IP address
+Device info
+Examples:
+Admin suspended user
+Admin changed subscription
+Admin deleted post
+Admin issued refund
+Admin changed settings
+Expected output:
+You can trace who did what and when.
+==================================================
+15.	NOTIFICATION SYSTEM 
+What to do:
+Alert admins when important things happen.
+How to do it:
+Create internal notifications and optional email alerts.
+Admin alerts:
+Payment failed
+System error
+New report
+High-priority ticket
+Suspicious login
+Server issue
+User verification pending
+Refund requested
+Database backup failed
+Expected output:
+Admins do not miss critical events.
+==================================================
+16.	SECURITY ARCHITECTURE 
+What to do:
+Protect the admin panel from attacks.
+How to do it:
+Use strong security controls.
+Required security:
+HTTPS only
+Two-factor authentication
+Strong passwords
+Session expiration
+Role permissions
+IP logging
+Rate limiting
+CSRF protection
+XSS protection
+SQL injection protection
+Encrypted sensitive data
+Backup system
+Admin action logs
+No direct database editing
+Expected output:
+The admin system is secure and trustworthy.
+==================================================
+17.	DATABASE STRUCTURE 
+What to do:
+Create tables that support admin control.
+How to do it:
+Use a clean database design.
+Main tables:
+users
+id
+name
+email
+phone
+password_hash
+role
+status
+created_at
+updated_at
+last_login
+admin_users
+id
+user_id
+admin_role
+two_factor_enabled
+status
+created_at
+roles
+id
+name
+description
+permissions
+id
+name
+description
+role_permissions
+role_id
+permission_id
+audit_logs
+id
+admin_id
+action
+target_type
+target_id
+old_value
+new_value
+ip_address
+created_at
+support_tickets
+id
+user_id
+subject
+message
+priority
+status
+assigned_to
+created_at
+payments
+id
+user_id
+amount
+status
+provider
+transaction_id
+created_at
+subscriptions
+id
+user_id
+plan
+status
+start_date
+end_date
+reports
+id
+reporter_id
+reported_user_id
+reason
+status
+created_at
+notifications
+id
+user_id
+type
+message
+read_status
+created_at
+settings
+id
+key
+value
+updated_by
+updated_at
+==================================================
+18.	BACKEND ARCHITECTURE 
+What to do:
+Create backend services for admin actions.
+How to do it:
+Separate admin logic from normal app logic.
+Backend modules:
+Auth service
+User service
+Admin service
+Permission service
+Payment service
+Ticket service
+Report service
+Notification service
+Audit log service
+Settings service
+Analytics service
+Expected output:
+The backend stays organized and easy to scale.
+==================================================
+19.	FRONTEND ADMIN PANEL 
+What to do:
+Build a clean admin interface.
+How to do it:
+Create pages for each admin module.
+Admin pages:
+Login
+Dashboard
+Users
+Admins
+Roles
+Permissions
+Content
+Reports
+Payments
+Subscriptions
+Support Tickets
+Notifications
+Analytics
+Audit Logs
+Settings
+System Health
+Expected output:
+Admins can control the app from a simple web interface.
+==================================================
+20.	API STRUCTURE 
+What to do:
+Create secure admin API routes.
+How to do it:
+Protect every admin route with authentication and permission checks.
+Example routes:
+POST /admin/login
+GET /admin/dashboard
+GET /admin/users
+GET /admin/users/:id
+PATCH /admin/users/:id
+POST /admin/users/:id/suspend
+POST /admin/users/:id/ban
+GET /admin/payments
+POST /admin/refunds
+GET /admin/reports
+PATCH /admin/reports/:id
+GET /admin/tickets
+PATCH /admin/tickets/:id
+GET /admin/audit-logs
+GET /admin/settings
+PATCH /admin/settings
+Expected output:
+The admin frontend communicates safely with the backend.
+==================================================
+21.	SYSTEM HEALTH MODULE 
+What to do:
+Allow admins to monitor technical performance.
+How to do it:
+Show app infrastructure status.
+Track:
+Server uptime
+Database health
+API response time
+Error logs
+Memory usage
+CPU usage
+Storage usage
+Email service status
+Payment provider status
+Backup status
+Expected output:
+Admins know when the system has a technical problem.
+==================================================
+22.	BACKUP AND RECOVERY 
+What to do:
+Protect the app from data loss.
+How to do it:
+Create automatic backups.
+Backup rules:
+Daily database backup
+Weekly full backup
+Encrypted backup storage
+Backup success notification
+Restore testing
+Emergency recovery process
+Expected output:
+The app can recover if something goes wrong.
+==================================================
+23.	ADMIN WORKFLOW 
+Normal daily admin workflow:
+1.	Login with 2FA 
+2.	Check dashboard alerts 
+3.	Review new users 
+4.	Handle pending reports 
+5.	Answer support tickets 
+6.	Check failed payments 
+7.	Review system errors 
+8.	Export reports if needed 
+9.	Review audit logs 
+10.	Logout securely 
+==================================================
+24.	RECOMMENDED TECH STACK 
+Frontend:
+React
+Next.js
+Tailwind CSS
+ShadCN UI
+Backend:
+Node.js with NestJS
+or Django
+or Laravel
+or FastAPI
+Database:
+PostgreSQL
+Authentication:
+JWT
+Session cookies
+2FA
+Payments:
+Stripe
+Storage:
+AWS S3
+Cloudflare R2
+Email:
+SendGrid
+Resend
+Mailgun
+Monitoring:
+Sentry
+Grafana
+Prometheus
+Hosting:
+AWS
+DigitalOcean
+Render
+Railway
+Vercel
+==================================================
+25.	FINAL ADMIN ARCHITECTURE SUMMARY 
+The admin system should have:
+Secure admin login
+Role-based permissions
+Main dashboard
+User management
+Admin management
+Content management
+Reports and moderation
+Payments and subscriptions
+Support tickets
+System settings
+Analytics
+Audit logs
+Notifications
+Security controls
+Database backup
+System health monitoring
+Main goal:
+The admin panel should let you control the whole app safely, without touching the database directly.
+

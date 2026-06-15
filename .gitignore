@@ -1,0 +1,48 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+Thumbs.db
+desktop.ini
+
+# debug / logs (may contain request data — never commit)
+*.log
+dev-server.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files — NEVER commit real secrets
+.env
+.env*.local
+.env.development
+.env.production
+
+# prisma
+/prisma/*.db
+/prisma/*.db-journal
+
+# uploaded files (private foster-care documents must never be committed)
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

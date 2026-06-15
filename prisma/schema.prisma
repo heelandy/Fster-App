@@ -1,0 +1,598 @@
+// Foster Care Home Management System — database schema
+// PostgreSQL + Prisma. All tenant data is scoped to a Household.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum GlobalRole {
+  USER
+  ADMIN
+}
+
+enum HouseholdRole {
+  FOSTER_PARENT // full management of the household
+  CO_PARENT // household member, can be permission-limited
+  BABYSITTER // respite caregiver, limited care instructions only
+}
+
+enum PlanTier {
+  FREE
+  FAMILY
+  PRO
+  AGENCY
+}
+
+enum BillingInterval {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  GRACE // failed payment, inside grace period — access retained
+  CANCELED
+  INCOMPLETE
+  UNPAID // grace expired — paid access removed
+}
+
+enum PlacementStatus {
+  PENDING
+  ACTIVE
+  RESPITE
+  TRIAL_HOME_VISIT
+  REUNIFIED
+  ADOPTED
+  ENDED
+}
+
+enum AppointmentType {
+  DOCTOR
+  THERAPY
+  DENTAL
+  COURT
+  SCHOOL_MEETING
+  CASEWORKER_VISIT
+  HOME_INSPECTION
+  LICENSING_DEADLINE
+  OTHER
+}
+
+enum ContactRole {
+  CASEWORKER
+  LICENSING_WORKER
+  GAL
+  ATTORNEY
+  THERAPIST
+  DOCTOR
+  DENTIST
+  TEACHER
+  SCHOOL_COUNSELOR
+  BIOLOGICAL_FAMILY
+  EMERGENCY
+  OTHER
+}
+
+enum ExpenseCategory {
+  CLOTHING
+  SCHOOL_SUPPLIES
+  FOOD
+  HYGIENE
+  ACTIVITIES
+  TRANSPORTATION
+  MEDICAL
+  CHILDCARE
+  ROOM_SETUP
+  OTHER
+}
+
+enum DocumentCategory {
+  PLACEMENT
+  MEDICAL
+  SCHOOL
+  COURT
+  LICENSING
+  RECEIPT
+  CASE_NOTE
+  OTHER
+}
+
+enum LicensingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETE
+  DUE_SOON
+  EXPIRED
+}
+
+enum RoutineType {
+  MORNING
+  AFTER_SCHOOL
+  BEDTIME
+  VISIT_DAY
+  SCHOOL_DAY
+  INTAKE
+  HOME_INSPECTION
+  MEDICATION
+  CUSTOM
+}
+
+// ───────────────────────────── Auth / Tenancy ─────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String?
+  passwordHash  String
+  globalRole    GlobalRole @default(USER)
+  isActive      Boolean    @default(true)
+  failedLogins  Int        @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  ownedHouseholds Household[]        @relation("HouseholdOwner")
+  memberships     HouseholdMember[]
+  adminAuditLogs  AdminAuditLog[]    @relation("AdminActor")
+  securityLogs    SecurityAuditLog[] @relation("SecurityActor")
+
+  @@index([email])
+}
+
+model Household {
+  id              String   @id @default(cuid())
+  name            String
+  ownerId         String
+  owner           User     @relation("HouseholdOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  stripeCustomerId String? @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members      HouseholdMember[]
+  children     ChildProfile[]
+  appointments Appointment[]
+  documents    Document[]
+  careLogs     DailyCareLog[]
+  medications  Medication[]
+  expenses     Expense[]
+  contacts     Contact[]
+  routines     Routine[]
+  checklists   Checklist[]
+  licensing    LicensingRequirement[]
+  trainingHours TrainingHour[]
+  subscription Subscription?
+
+  @@index([ownerId])
+}
+
+model HouseholdMember {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        HouseholdRole @default(CO_PARENT)
+  // Granular permission flags (JSON) layered on top of the role for fine control.
+  permissions Json          @default("{}")
+  invitedAt   DateTime      @default(now())
+  acceptedAt  DateTime?
+
+  @@unique([householdId, userId])
+  @@index([userId])
+  @@index([householdId])
+}
+
+// ───────────────────────────── Children ─────────────────────────────
+
+model ChildProfile {
+  id              String          @id @default(cuid())
+  householdId     String
+  household       Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  firstName       String
+  preferredName   String?
+  lastName        String?
+  dateOfBirth     DateTime?
+  placementStatus PlacementStatus @default(ACTIVE)
+  // Sensitive fields — access restricted by RBAC; encrypt at rest in production.
+  caseNumber      String?
+  caseworkerName  String?
+  school          String?
+  doctorName      String?
+  allergies       String?
+  importantNotes  String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  placements   Placement[]
+  appointments Appointment[]
+  documents    Document[]
+  careLogs     DailyCareLog[]
+  medications  Medication[]
+  expenses     Expense[]
+  contacts     Contact[]
+
+  @@index([householdId])
+}
+
+model Placement {
+  id            String          @id @default(cuid())
+  childId       String
+  child         ChildProfile    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  status        PlacementStatus @default(ACTIVE)
+  placementDate DateTime
+  endDate       DateTime?
+  agency        String?
+  notes         String?
+  createdAt     DateTime        @default(now())
+
+  @@index([childId])
+}
+
+// ───────────────────────────── Appointments ─────────────────────────────
+
+model Appointment {
+  id          String          @id @default(cuid())
+  householdId String
+  household   Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  child       ChildProfile?   @relation(fields: [childId], references: [id], onDelete: SetNull)
+  title       String
+  type        AppointmentType @default(OTHER)
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  reminderAt  DateTime?
+  reminderSent Boolean        @default(false)
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([householdId, startsAt])
+  @@index([childId])
+}
+
+// ───────────────────────────── Documents ─────────────────────────────
+
+model Document {
+  id           String           @id @default(cuid())
+  householdId  String
+  household    Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId      String?
+  child        ChildProfile?    @relation(fields: [childId], references: [id], onDelete: SetNull)
+  category     DocumentCategory @default(OTHER)
+  title        String
+  // Storage key is an opaque path inside the private storage dir — never a public URL.
+  storageKey   String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String
+  createdAt    DateTime         @default(now())
+
+  @@index([householdId])
+  @@index([childId])
+}
+
+// ───────────────────────────── Daily care logs ─────────────────────────────
+
+model DailyCareLog {
+  id              String       @id @default(cuid())
+  householdId     String
+  household       Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId         String
+  child           ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  logDate         DateTime
+  meals           String?
+  sleep           String?
+  behavior        String?
+  mood            String?
+  schoolUpdate    String?
+  visits          String?
+  medicalConcerns String?
+  incidents       String?
+  milestones      String?
+  generalNotes    String?
+  authorId        String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([householdId, logDate])
+  @@index([childId, logDate])
+}
+
+// ───────────────────────────── Medications ─────────────────────────────
+
+model Medication {
+  id              String          @id @default(cuid())
+  householdId     String
+  household       Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId         String
+  child           ChildProfile    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  name            String
+  dosage          String?
+  schedule        String? // e.g. "Twice daily, 8am & 8pm"
+  startDate       DateTime?
+  endDate         DateTime?
+  prescribingDoctor String?
+  notes           String?
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  logs MedicationLog[]
+
+  @@index([householdId])
+  @@index([childId])
+}
+
+model MedicationLog {
+  id           String     @id @default(cuid())
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  givenAt      DateTime
+  status       String     @default("GIVEN") // GIVEN | MISSED | REFUSED
+  givenById    String?
+  notes        String?
+  createdAt    DateTime   @default(now())
+
+  @@index([medicationId, givenAt])
+}
+
+// ───────────────────────────── Expenses ─────────────────────────────
+
+model Expense {
+  id          String          @id @default(cuid())
+  householdId String
+  household   Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  child       ChildProfile?   @relation(fields: [childId], references: [id], onDelete: SetNull)
+  category    ExpenseCategory @default(OTHER)
+  description String
+  amountCents Int
+  spentAt     DateTime
+  createdById String
+  createdAt   DateTime        @default(now())
+
+  receipts Receipt[]
+
+  @@index([householdId, spentAt])
+}
+
+model Receipt {
+  id           String   @id @default(cuid())
+  expenseId    String
+  expense      Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  storageKey   String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  createdAt    DateTime @default(now())
+
+  @@index([expenseId])
+}
+
+// ───────────────────────────── Contacts ─────────────────────────────
+
+model Contact {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  child       ChildProfile? @relation(fields: [childId], references: [id], onDelete: SetNull)
+  name        String
+  role        ContactRole   @default(OTHER)
+  phone       String?
+  email       String?
+  agency      String?
+  notes       String?
+  // Legal/court-linked contacts are hidden from babysitter caregivers.
+  isLegal     Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([householdId])
+}
+
+// ───────────────────────────── Routines & checklists ─────────────────────────────
+
+model Routine {
+  id          String      @id @default(cuid())
+  householdId String
+  household   Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name        String
+  type        RoutineType @default(CUSTOM)
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tasks RoutineTask[]
+
+  @@index([householdId])
+}
+
+model RoutineTask {
+  id        String   @id @default(cuid())
+  routineId String
+  routine   Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  title     String
+  order     Int      @default(0)
+  isDone    Boolean  @default(false)
+
+  @@index([routineId])
+}
+
+model Checklist {
+  id          String      @id @default(cuid())
+  householdId String
+  household   Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name        String
+  type        RoutineType @default(CUSTOM)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  items ChecklistItem[]
+
+  @@index([householdId])
+}
+
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  title       String
+  order       Int       @default(0)
+  isDone      Boolean   @default(false)
+  doneAt      DateTime?
+
+  @@index([checklistId])
+}
+
+// ───────────────────────────── Licensing & compliance ─────────────────────────────
+
+model LicensingRequirement {
+  id          String          @id @default(cuid())
+  householdId String
+  household   Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name        String // e.g. "Fire inspection", "CPR/First Aid"
+  category    String? // Training, Background, HomeStudy, Medical, Renewal, Document...
+  status      LicensingStatus @default(NOT_STARTED)
+  dueDate     DateTime?
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([householdId, dueDate])
+}
+
+model TrainingHour {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title       String
+  hours       Float
+  completedAt DateTime
+  provider    String?
+  createdAt   DateTime  @default(now())
+
+  @@index([householdId])
+}
+
+// ───────────────────────────── Billing ─────────────────────────────
+
+model Plan {
+  id              String          @id @default(cuid())
+  tier            PlanTier        @unique
+  name            String
+  description     String?
+  priceCentsMonthly Int           @default(0)
+  priceCentsAnnual  Int           @default(0)
+  stripePriceMonthly String?
+  stripePriceAnnual  String?
+  // Feature flags / limits encoded as JSON (see lib/plans.ts for the source of truth).
+  features        Json            @default("{}")
+  isActive        Boolean         @default(true)
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  householdId          String             @unique
+  household            Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tier                 PlanTier           @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  interval             BillingInterval    @default(MONTHLY)
+  stripeSubscriptionId String?            @unique
+  stripeCustomerId     String?
+  currentPeriodEnd     DateTime?
+  graceUntil           DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  trialEndsAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  payments Payment[]
+  invoices Invoice[]
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  subscriptionId  String
+  subscription    Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  stripePaymentId String?       @unique
+  amountCents     Int
+  currency        String        @default("usd")
+  status          String // succeeded | failed | refunded
+  createdAt       DateTime      @default(now())
+
+  @@index([subscriptionId])
+}
+
+model Invoice {
+  id              String       @id @default(cuid())
+  subscriptionId  String
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  stripeInvoiceId String?      @unique
+  amountDueCents  Int
+  amountPaidCents Int          @default(0)
+  status          String // draft | open | paid | void | uncollectible
+  hostedInvoiceUrl String?
+  pdfUrl          String?
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@index([subscriptionId])
+}
+
+// ───────────────────────────── Audit logs ─────────────────────────────
+
+// Records every Stripe webhook event id we have processed, so retried or
+// replayed deliveries are acknowledged but not processed twice.
+model ProcessedWebhookEvent {
+  id        String   @id // Stripe event id (evt_...)
+  type      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AdminActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model SecurityAuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation("SecurityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  event     String // LOGIN_SUCCESS, LOGIN_FAILED, ACCESS_DENIED, RATE_LIMITED, FILE_DOWNLOAD, etc.
+  ip        String?
+  userAgent String?
+  path      String?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([event, createdAt])
+  @@index([actorId])
+}
