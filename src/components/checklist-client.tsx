@@ -23,14 +23,18 @@ interface Props {
   itemToggleEndpoint: string; // /api/routine-tasks or /api/checklist-items
   itemsKey: 'tasks' | 'items'; // payload key + response key for sub-items
   canWrite: boolean;
+  /** When set, scopes the list + create to a single child (per-child view). */
+  fixedChildId?: string;
 }
 
-export function ChecklistClient({ title, endpoint, itemToggleEndpoint, itemsKey, canWrite }: Props) {
+export function ChecklistClient({ title, endpoint, itemToggleEndpoint, itemsKey, canWrite, fixedChildId }: Props) {
   const [parents, setParents] = useState<Parent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const listUrl = fixedChildId ? `${endpoint}?childId=${encodeURIComponent(fixedChildId)}` : endpoint;
 
   function normalize(rows: Record<string, unknown>[]): Parent[] {
     return rows.map((r) => ({
@@ -43,14 +47,14 @@ export function ChecklistClient({ title, endpoint, itemToggleEndpoint, itemsKey,
 
   async function load() {
     setLoading(true);
-    const res = await fetch(endpoint);
+    const res = await fetch(listUrl);
     if (res.ok) setParents(normalize(await res.json()));
     setLoading(false);
   }
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint]);
+  }, [listUrl]);
 
   async function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -61,11 +65,12 @@ export function ChecklistClient({ title, endpoint, itemToggleEndpoint, itemsKey,
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: String(fd.get('name')),
       type: String(fd.get('type')),
       [itemsKey]: itemLines,
     };
+    if (fixedChildId) payload.childId = fixedChildId;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

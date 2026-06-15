@@ -222,6 +222,7 @@ model ChildProfile {
   medications  Medication[]
   expenses     Expense[]
   contacts     Contact[]
+  routines     Routine[]
 
   @@index([householdId])
 }
@@ -408,18 +409,21 @@ model Contact {
 // ───────────────────────────── Routines & checklists ─────────────────────────────
 
 model Routine {
-  id          String      @id @default(cuid())
+  id          String        @id @default(cuid())
   householdId String
-  household   Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  child       ChildProfile? @relation(fields: [childId], references: [id], onDelete: SetNull)
   name        String
-  type        RoutineType @default(CUSTOM)
+  type        RoutineType   @default(CUSTOM)
   description String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   tasks RoutineTask[]
 
   @@index([householdId])
+  @@index([childId])
 }
 
 model RoutineTask {

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { requireHousehold, requireUser, can } from '@/lib/authz';
 import { planHasFeature } from '@/lib/plans';
 import { DashboardNav, type NavItem } from '@/components/dashboard-nav';
+import { MobileNav } from '@/components/mobile-nav';
 import { SignOutButton } from '@/components/sign-out-button';
 
 function NoHousehold({ isAdmin }: { isAdmin: boolean }) {
@@ -78,10 +79,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
         </aside>
         <main className="min-w-0 flex-1">
-          {/* Mobile nav */}
-          <div className="mb-4 flex items-center justify-between md:hidden">
-            <p className="font-bold text-brand-700">🏠 {ctx.householdName}</p>
-            <SignOutButton />
+          {/* Mobile header + dropdown nav */}
+          <div className="mb-4 md:hidden">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-bold text-brand-700">🏠 {ctx.householdName}</p>
+                <span className="badge mt-1 bg-brand-100 text-brand-800">{ctx.tier} plan</span>
+              </div>
+              <SignOutButton />
+            </div>
+            <div className="mt-3">
+              <MobileNav items={items} />
+            </div>
           </div>
           {children}
         </main>

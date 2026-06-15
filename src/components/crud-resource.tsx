@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 export interface FieldDef {
@@ -24,6 +25,10 @@ interface Props {
   columns: ColumnDef[];
   canWrite: boolean;
   emptyText?: string;
+  /** When set, scopes the list + create form to a single child (per-child views). */
+  fixedChildId?: string;
+  /** When set, each row gets a "View" link to `${rowLinkBase}/${id}`. */
+  rowLinkBase?: string;
 }
 
 type Row = Record<string, unknown>;
@@ -51,7 +56,7 @@ function formatCell(row: Row, col: ColumnDef): string {
   }
 }
 
-export function CrudResource({ title, endpoint, fields, columns, canWrite, emptyText }: Props) {
+export function CrudResource({ title, endpoint, fields, columns, canWrite, emptyText, fixedChildId, rowLinkBase }: Props) {
   const [items, setItems] = useState<Row[]>([]);
   const [children, setChildren] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,16 +64,21 @@ export function CrudResource({ title, endpoint, fields, columns, canWrite, empty
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // When scoped to one child, hide the child picker field and the child column.
+  const formFields = fixedChildId ? fields.filter((f) => f.type !== 'childSelect') : fields;
+  const tableColumns = fixedChildId ? columns.filter((c) => c.kind !== 'childName') : columns;
+  const listUrl = fixedChildId ? `${endpoint}?childId=${encodeURIComponent(fixedChildId)}` : endpoint;
+
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(endpoint);
+    const res = await fetch(listUrl);
     if (res.ok) setItems(await res.json());
     setLoading(false);
-  }, [endpoint]);
+  }, [listUrl]);
 
   useEffect(() => {
     load();
-    if (fields.some((f) => f.type === 'childSelect')) {
+    if (!fixedChildId && fields.some((f) => f.type === 'childSelect')) {
       fetch('/api/children')
         .then((r) => (r.ok ? r.json() : []))
         .then((rows: Row[]) =>
@@ -89,13 +99,14 @@ export function CrudResource({ title, endpoint, fields, columns, canWrite, empty
     setError(null);
     const fd = new FormData(e.currentTarget);
     const payload: Record<string, unknown> = {};
-    for (const f of fields) {
+    for (const f of formFields) {
       const raw = fd.get(f.name);
       if (raw == null || raw === '') continue;
       if (f.type === 'money') payload[f.name] = Math.round(Number(raw) * 100);
       else if (f.type === 'number') payload[f.name] = Number(raw);
       else payload[f.name] = String(raw);
     }
+    if (fixedChildId) payload.childId = fixedChildId;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -132,7 +143,7 @@ export function CrudResource({ title, endpoint, fields, columns, canWrite, empty
 
       {showForm && canWrite && (
         <form onSubmit={onSubmit} className="card mb-6 grid gap-4 sm:grid-cols-2">
-          {fields.map((f) => (
+          {formFields.map((f) => (
             <div key={f.name} className={f.type === 'textarea' ? 'sm:col-span-2' : ''}>
               <label className="label" htmlFor={f.name}>
                 {f.label}
@@ -193,23 +204,32 @@ export function CrudResource({ title, endpoint, fields, columns, canWrite, empty
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
-                {columns.map((c) => (
+                {tableColumns.map((c) => (
                   <th key={c.key} className="px-4 py-3 font-medium">{c.label}</th>
                 ))}
-                {canWrite && <th className="px-4 py-3" />}
+                {(canWrite || rowLinkBase) && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
               {items.map((row) => (
                 <tr key={String(row.id)} className="border-b border-slate-100 last:border-0">
-                  {columns.map((c) => (
+                  {tableColumns.map((c) => (
                     <td key={c.key} className="px-4 py-3 text-slate-700">{formatCell(row, c)}</td>
                   ))}
-                  {canWrite && (
+                  {(canWrite || rowLinkBase) && (
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => onDelete(String(row.id))} className="text-xs text-red-600 hover:underline">
-                        Delete
-                      </button>
+                      <div className="flex justify-end gap-3">
+                        {rowLinkBase && (
+                          <Link href={`${rowLinkBase}/${String(row.id)}`} className="text-xs text-brand-700 hover:underline">
+                            View
+                          </Link>
+                        )}
+                        {canWrite && (
+                          <button onClick={() => onDelete(String(row.id))} className="text-xs text-red-600 hover:underline">
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>

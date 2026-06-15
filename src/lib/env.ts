@@ -8,6 +8,10 @@ import { z } from 'zod';
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
   NEXTAUTH_SECRET: z.string().min(16, 'NEXTAUTH_SECRET must be at least 16 chars'),
+  // Key for AES-256-GCM field/file encryption at rest. Any string ≥16 chars; it is
+  // hashed to a 32-byte key. MUST be stable and backed up — losing it makes
+  // encrypted data unrecoverable.
+  ENCRYPTION_KEY: z.string().min(16, 'ENCRYPTION_KEY must be at least 16 chars'),
   NEXTAUTH_URL: z.string().url().optional(),
   APP_URL: z.string().url().default('http://localhost:3000'),
 

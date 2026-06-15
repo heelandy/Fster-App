@@ -151,6 +151,7 @@ export const routineSchema = z.object({
   name: shortText,
   type: z.enum(ROUTINE_TYPE).default('CUSTOM'),
   description: longText,
+  childId: z.string().cuid().optional(),
   tasks: z.array(shortText).max(100).optional(),
 });
 

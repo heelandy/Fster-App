@@ -10,8 +10,20 @@ export default async function BillingPage() {
 
   const household = await prisma.household.findUnique({
     where: { id: ctx.householdId },
-    select: { stripeCustomerId: true, subscription: { select: { status: true } } },
+    select: {
+      stripeCustomerId: true,
+      subscription: {
+        select: {
+          status: true,
+          interval: true,
+          currentPeriodEnd: true,
+          cancelAtPeriodEnd: true,
+          trialEndsAt: true,
+        },
+      },
+    },
   });
+  const sub = household?.subscription ?? null;
 
   const invoices = await prisma.invoice.findMany({
     where: { subscription: { householdId: ctx.householdId } },
@@ -31,7 +43,11 @@ export default async function BillingPage() {
     <div>
       <BillingClient
         currentTier={ctx.tier}
-        status={household?.subscription?.status ?? 'ACTIVE'}
+        status={sub?.status ?? 'ACTIVE'}
+        interval={sub?.interval ?? 'MONTHLY'}
+        currentPeriodEnd={sub?.currentPeriodEnd ? sub.currentPeriodEnd.toISOString() : null}
+        cancelAtPeriodEnd={sub?.cancelAtPeriodEnd ?? false}
+        trialEndsAt={sub?.trialEndsAt ? sub.trialEndsAt.toISOString() : null}
         plans={plans}
         hasCustomer={Boolean(household?.stripeCustomerId)}
       />

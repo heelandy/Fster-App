@@ -11,13 +11,14 @@ import { logAdmin } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
-export function GET() {
+export function GET(req: Request) {
   return handle(async () => {
     const ctx = await requireHousehold();
     requireCapability(ctx, 'documents:read');
     requireFeature(ctx, 'documents');
+    const childId = new URL(req.url).searchParams.get('childId');
     const docs = await prisma.document.findMany({
-      where: { householdId: ctx.householdId },
+      where: { householdId: ctx.householdId, ...(childId ? { childId } : {}) },
       // Never expose storageKey to the client.
       select: {
         id: true,

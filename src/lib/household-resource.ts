@@ -61,12 +61,18 @@ function guard(ctx: HouseholdContext, cap: Capability, feature?: FeatureKey) {
 }
 
 export function collection<T extends Record<string, unknown>>(cfg: ResourceConfig<T>) {
-  const GET = () =>
+  const GET = (req: Request) =>
     handle(async () => {
       const ctx = await requireHousehold();
       guard(ctx, cfg.readCap, cfg.feature);
+      // Optional ?childId=… filter for per-child views (only for child-linked resources).
+      const childId = cfg.childField ? new URL(req.url).searchParams.get('childId') : null;
       const rows = await cfg.delegate.findMany({
-        where: { householdId: ctx.householdId, ...(cfg.listWhere?.(ctx) ?? {}) },
+        where: {
+          householdId: ctx.householdId,
+          ...(cfg.listWhere?.(ctx) ?? {}),
+          ...(childId ? { childId } : {}),
+        },
         include: cfg.include,
         orderBy: cfg.orderBy ?? { createdAt: 'desc' },
       });

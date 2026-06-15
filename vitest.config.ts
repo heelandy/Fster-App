@@ -9,6 +9,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
       NEXTAUTH_SECRET: 'test-secret-test-secret-test-secret',
+      ENCRYPTION_KEY: 'test-encryption-key-test-encryption-key',
       NEXTAUTH_URL: 'http://localhost:3000',
       APP_URL: 'http://localhost:3000',
     },

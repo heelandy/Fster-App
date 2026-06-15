@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { env } from './env';
+import { encryptBytes, decryptBytes } from './crypto';
 
 /**
  * Private, access-controlled file storage.
@@ -102,12 +103,13 @@ export async function saveFile(data: Buffer, mimeType: string): Promise<SavedFil
   const storageKey = path.posix.join(id.slice(0, 2), id);
   const dest = resolveKey(storageKey);
   await mkdir(path.dirname(dest), { recursive: true });
-  await writeFile(dest, data, { mode: 0o600 });
+  // Encrypt the file bytes at rest; sizeBytes records the original (plaintext) size.
+  await writeFile(dest, encryptBytes(data), { mode: 0o600 });
   return { storageKey, sizeBytes: data.byteLength };
 }
 
 export async function readStoredFile(storageKey: string): Promise<Buffer> {
-  return readFile(resolveKey(storageKey));
+  return decryptBytes(await readFile(resolveKey(storageKey)));
 }
 
 export async function deleteStoredFile(storageKey: string): Promise<void> {

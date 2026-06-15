@@ -37,6 +37,7 @@ export default async function ChildrenPage() {
       fields={fields}
       columns={columns}
       canWrite={can(ctx, 'children:write')}
+      rowLinkBase="/dashboard/children"
       emptyText="No child profiles yet. Add your first placement."
     />
   );

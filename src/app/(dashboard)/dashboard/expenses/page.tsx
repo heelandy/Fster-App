@@ -1,26 +1,10 @@
 import { requireHousehold, can } from '@/lib/authz';
 import { planHasFeature } from '@/lib/plans';
 import { prisma } from '@/lib/prisma';
-import { EXPENSE_CATEGORY, toOptions } from '@/lib/enums';
-import { CrudResource, type FieldDef, type ColumnDef } from '@/components/crud-resource';
+import { CrudResource } from '@/components/crud-resource';
+import { expenseFields, expenseColumns } from '@/components/resource-configs';
 import { ExpenseSummary } from '@/components/expense-summary';
 import { AccessDenied, FeatureLocked } from '@/components/feature-locked';
-
-const fields: FieldDef[] = [
-  { name: 'description', label: 'Description', type: 'text', required: true },
-  { name: 'category', label: 'Category', type: 'select', options: toOptions(EXPENSE_CATEGORY) },
-  { name: 'amountCents', label: 'Amount ($)', type: 'money', required: true },
-  { name: 'spentAt', label: 'Date', type: 'date', required: true },
-  { name: 'childId', label: 'Child (optional)', type: 'childSelect' },
-];
-
-const columns: ColumnDef[] = [
-  { key: 'spentAt', label: 'Date', kind: 'date' },
-  { key: 'category', label: 'Category', kind: 'enum' },
-  { key: 'description', label: 'Description' },
-  { key: 'amountCents', label: 'Amount', kind: 'money' },
-  { key: 'child', label: 'Child', kind: 'childName' },
-];
 
 export default async function ExpensesPage() {
   const ctx = await requireHousehold();
@@ -51,8 +35,8 @@ export default async function ExpensesPage() {
       <CrudResource
         title="Expenses"
         endpoint="/api/expenses"
-        fields={fields}
-        columns={columns}
+        fields={expenseFields}
+        columns={expenseColumns}
         canWrite={can(ctx, 'expenses:write')}
         emptyText="No expenses logged yet."
       />

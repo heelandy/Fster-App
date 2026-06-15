@@ -14,27 +14,31 @@ interface Doc {
 
 const CATEGORIES = DOCUMENT_CATEGORY;
 
-export function DocumentsClient({ canWrite }: { canWrite: boolean }) {
+export function DocumentsClient({ canWrite, fixedChildId }: { canWrite: boolean; fixedChildId?: string }) {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const listUrl = fixedChildId ? `/api/documents?childId=${encodeURIComponent(fixedChildId)}` : '/api/documents';
+
   async function load() {
     setLoading(true);
-    const res = await fetch('/api/documents');
+    const res = await fetch(listUrl);
     if (res.ok) setDocs(await res.json());
     setLoading(false);
   }
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listUrl]);
 
   async function onUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
+    if (fixedChildId) fd.set('childId', fixedChildId);
     const res = await fetch('/api/documents', { method: 'POST', body: fd });
     setBusy(false);
     if (!res.ok) {
