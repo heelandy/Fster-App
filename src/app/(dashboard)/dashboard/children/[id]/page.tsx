@@ -42,6 +42,20 @@ export default async function ChildDetailPage({ params }: { params: { id: string
     routinesWrite: can(ctx, 'routines:write'),
   };
 
+  // Per-child cost report (spending attributed to this child).
+  let spendMonth = 0;
+  let spendTotal = 0;
+  if (perms.expenses) {
+    const now = new Date();
+    const startMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const [m, t] = await Promise.all([
+      prisma.expense.aggregate({ where: { householdId: ctx.householdId, childId: child.id, spentAt: { gte: startMonth } }, _sum: { amountCents: true } }),
+      prisma.expense.aggregate({ where: { householdId: ctx.householdId, childId: child.id }, _sum: { amountCents: true } }),
+    ]);
+    spendMonth = m._sum.amountCents ?? 0;
+    spendTotal = t._sum.amountCents ?? 0;
+  }
+
   const name = child.preferredName || child.firstName;
   const dob = child.dateOfBirth ? new Date(child.dateOfBirth).toLocaleDateString(undefined, { timeZone: 'UTC' }) : null;
 
@@ -74,6 +88,19 @@ export default async function ChildDetailPage({ params }: { params: { id: string
           <Field label="Important notes" value={child.importantNotes} />
         </dl>
       </div>
+
+      {perms.expenses && (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="card">
+            <p className="text-xs uppercase text-slate-500">Spent on {name} this month</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">${(spendMonth / 100).toFixed(2)}</p>
+          </div>
+          <div className="card">
+            <p className="text-xs uppercase text-slate-500">Total spent on {name}</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">${(spendTotal / 100).toFixed(2)}</p>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6">
         <ChildTabs childId={child.id} perms={perms} />

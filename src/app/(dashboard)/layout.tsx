@@ -2,9 +2,25 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireHousehold, requireUser, can } from '@/lib/authz';
 import { planHasFeature } from '@/lib/plans';
+import { isFlagOn } from '@/lib/settings';
 import { DashboardNav, type NavItem } from '@/components/dashboard-nav';
 import { MobileNav } from '@/components/mobile-nav';
 import { SignOutButton } from '@/components/sign-out-button';
+
+function Maintenance() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+      <div className="card max-w-md text-center">
+        <p className="text-3xl">🛠️</p>
+        <h1 className="mt-2 text-lg font-semibold text-slate-900">We’ll be right back</h1>
+        <p className="mt-1 text-sm text-slate-600">
+          The app is temporarily down for maintenance. Please try again shortly.
+        </p>
+        <div className="mt-4"><SignOutButton /></div>
+      </div>
+    </div>
+  );
+}
 
 function NoHousehold({ isAdmin }: { isAdmin: boolean }) {
   return (
@@ -32,6 +48,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     user = await requireUser();
   } catch {
     redirect('/login');
+  }
+
+  // Maintenance mode blocks everyone except admins.
+  if (user.role !== 'ADMIN' && (await isFlagOn('maintenanceMode'))) {
+    return <Maintenance />;
   }
 
   let ctx;

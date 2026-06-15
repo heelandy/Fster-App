@@ -29,6 +29,9 @@ export function GET() {
       statusGroups,
       failedLogins24h,
       accessDenied24h,
+      revenueAgg,
+      paymentIssues,
+      unreadNotifications,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { globalRole: 'ADMIN' } }),
@@ -41,6 +44,9 @@ export function GET() {
       prisma.subscription.groupBy({ by: ['status'], _count: { _all: true } }),
       prisma.securityAuditLog.count({ where: { event: 'LOGIN_FAILED', createdAt: { gte: since24h } } }),
       prisma.securityAuditLog.count({ where: { event: 'ACCESS_DENIED', createdAt: { gte: since24h } } }),
+      prisma.payment.aggregate({ where: { status: 'succeeded' }, _sum: { amountCents: true } }),
+      prisma.subscription.count({ where: { status: { in: ['PAST_DUE', 'GRACE', 'UNPAID'] } } }),
+      prisma.notification.count({ where: { isRead: false } }),
     ]);
 
     await logAdmin({ actorId: admin.id, action: 'ADMIN_VIEW_STATS' });
@@ -54,6 +60,9 @@ export function GET() {
         documents, // count only — no files exposed
         appointmentsUpcoming,
         newUsers7d,
+        revenueCents: revenueAgg._sum.amountCents ?? 0,
+        paymentIssues,
+        unreadNotifications,
       },
       subscriptionsByTier: Object.fromEntries(tierGroups.map((g) => [g.tier, g._count._all])),
       subscriptionsByStatus: Object.fromEntries(statusGroups.map((g) => [g.status, g._count._all])),

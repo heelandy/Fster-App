@@ -17,6 +17,17 @@ enum GlobalRole {
   ADMIN
 }
 
+// Platform-staff roles for the admin console (granular permissions in lib/admin.ts).
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  SUPPORT
+  MODERATOR
+  FINANCE_ADMIN
+  READ_ONLY
+}
+
 enum HouseholdRole {
   FOSTER_PARENT // full management of the household
   CO_PARENT // household member, can be permission-limited
@@ -134,7 +145,10 @@ model User {
   name          String?
   passwordHash  String
   globalRole    GlobalRole @default(USER)
+  adminRole     AdminRole? // null unless this user is admin staff
   isActive      Boolean    @default(true)
+  isBanned      Boolean    @default(false)
+  internalNote  String? // admin-only note about the account
   failedLogins  Int        @default(0)
   lockedUntil   DateTime?
   lastLoginAt   DateTime?
@@ -223,6 +237,7 @@ model ChildProfile {
   expenses     Expense[]
   contacts     Contact[]
   routines     Routine[]
+  checklists   Checklist[]
 
   @@index([householdId])
 }
@@ -438,17 +453,20 @@ model RoutineTask {
 }
 
 model Checklist {
-  id          String      @id @default(cuid())
+  id          String        @id @default(cuid())
   householdId String
-  household   Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  child       ChildProfile? @relation(fields: [childId], references: [id], onDelete: SetNull)
   name        String
-  type        RoutineType @default(CUSTOM)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  type        RoutineType   @default(CUSTOM)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   items ChecklistItem[]
 
   @@index([householdId])
+  @@index([childId])
 }
 
 model ChecklistItem {
@@ -561,6 +579,29 @@ model Invoice {
 }
 
 // ───────────────────────────── Audit logs ─────────────────────────────
+
+// System settings managed from the admin console (maintenance mode, signup
+// toggle, feature flags…). Key/value so new settings need no migration.
+model Setting {
+  key       String   @id
+  value     String
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+// Admin-facing notifications generated on important events (payment failed,
+// new signup, etc.).
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  message   String
+  level     String   @default("info") // info | warning | critical
+  isRead    Boolean  @default(false)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([isRead, createdAt])
+}
 
 // Records every Stripe webhook event id we have processed, so retried or
 // replayed deliveries are acknowledged but not processed twice.

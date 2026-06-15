@@ -158,6 +158,7 @@ export const routineSchema = z.object({
 export const checklistSchema = z.object({
   name: shortText,
   type: routineSchema.shape.type,
+  childId: z.string().cuid().optional(),
   items: z.array(shortText).max(100).optional(),
 });
 

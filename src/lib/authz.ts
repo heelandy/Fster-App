@@ -4,6 +4,7 @@ import { prisma } from './prisma';
 import { auth } from './auth';
 import { Errors } from './http';
 import { planHasFeature, type FeatureKey } from './plans';
+import { adminCan, type AdminPermission } from './admin';
 
 /**
  * Authorization core — RBAC + household-scoped access control.
@@ -137,10 +138,10 @@ export async function requireUser() {
   if (!session?.user?.id) throw Errors.unauthorized();
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, email: true, name: true, globalRole: true, isActive: true },
+    select: { id: true, email: true, name: true, globalRole: true, adminRole: true, isActive: true, isBanned: true },
   });
-  if (!user || !user.isActive) throw Errors.unauthorized();
-  return { id: user.id, email: user.email, name: user.name, role: user.globalRole };
+  if (!user || !user.isActive || user.isBanned) throw Errors.unauthorized();
+  return { id: user.id, email: user.email, name: user.name, role: user.globalRole, adminRole: user.adminRole };
 }
 
 /** Effective billing tier — GRACE keeps access, UNPAID/CANCELED drop to FREE. */
@@ -212,6 +213,13 @@ export function requireFeature(ctx: HouseholdContext, feature: FeatureKey): void
 export async function requireAdmin() {
   const user = await requireUser();
   if (user.role !== 'ADMIN') throw Errors.forbidden();
+  return user;
+}
+
+/** Require a specific granular admin permission (lib/admin.ts). */
+export async function requireAdminPermission(perm: AdminPermission) {
+  const user = await requireAdmin();
+  if (!adminCan(user.adminRole, perm)) throw Errors.forbidden();
   return user;
 }
 

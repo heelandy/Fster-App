@@ -5,6 +5,7 @@ import { getStripe, stripeConfigured } from '@/lib/stripe';
 import { env } from '@/lib/env';
 import { syncSubscription, markCanceled, recordInvoice } from '@/lib/billing-sync';
 import { logSecurity } from '@/lib/audit';
+import { notifyAdmins } from '@/lib/notify';
 
 export const runtime = 'nodejs';
 // Stripe needs the raw, unparsed body to verify the signature.
@@ -66,9 +67,17 @@ export async function POST(req: Request) {
       case 'invoice.paid':
         await recordInvoice(event.data.object as Stripe.Invoice, true);
         break;
-      case 'invoice.payment_failed':
-        await recordInvoice(event.data.object as Stripe.Invoice, false);
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        await recordInvoice(invoice, false);
+        await notifyAdmins({
+          type: 'PAYMENT_FAILED',
+          message: `Payment failed for customer ${typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id ?? 'unknown'} ($${(invoice.amount_due / 100).toFixed(2)})`,
+          level: 'warning',
+          metadata: { invoiceId: invoice.id },
+        });
         break;
+      }
       default:
         break;
     }

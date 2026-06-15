@@ -5,7 +5,9 @@ import { handle, json, Errors } from '@/lib/http';
 import { readJson, enforceRateLimit } from '@/lib/api';
 import { getClientInfo } from '@/lib/request';
 import { logSecurity } from '@/lib/audit';
+import { notifyAdmins } from '@/lib/notify';
 import { RateLimits } from '@/lib/rate-limit';
+import { isFlagOn } from '@/lib/settings';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +15,10 @@ export function POST(req: Request) {
   return handle(async () => {
     const info = getClientInfo();
     enforceRateLimit(`register:${info.ip}`, RateLimits.auth);
+
+    if (!(await isFlagOn('signupEnabled'))) {
+      throw Errors.badRequest('New sign-ups are currently disabled. Please check back later.');
+    }
 
     const data = await readJson(req, registerSchema);
 
@@ -48,6 +54,7 @@ export function POST(req: Request) {
     });
 
     await logSecurity({ actorId: user.id, event: 'REGISTERED', ip: info.ip, metadata: { email: data.email } });
+    await notifyAdmins({ type: 'NEW_USER', message: `New sign-up: ${data.email}`, metadata: { userId: user.id } });
 
     return json({ ok: true }, 201);
   });

@@ -49,12 +49,13 @@ async function main() {
   const adminEmail = 'admin@example.com';
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { globalRole: 'ADMIN' },
+    update: { globalRole: 'ADMIN', adminRole: 'SUPER_ADMIN' },
     create: {
       email: adminEmail,
       name: 'System Admin',
       passwordHash: await bcrypt.hash('Admin12345', 12),
       globalRole: 'ADMIN',
+      adminRole: 'SUPER_ADMIN',
     },
   });
   const adminHasHousehold = await prisma.householdMember.findFirst({ where: { userId: admin.id } });

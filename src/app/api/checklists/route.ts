@@ -3,17 +3,19 @@ import { requireHousehold, requireCapability } from '@/lib/authz';
 import { handle, json, Errors } from '@/lib/http';
 import { readJson, mutationGuard } from '@/lib/api';
 import { checklistSchema } from '@/lib/validation';
+import { assertChildInHousehold } from '@/lib/scope';
 import { withinLimit, planLimit } from '@/lib/plans';
 import { RateLimits } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
-export function GET() {
+export function GET(req: Request) {
   return handle(async () => {
     const ctx = await requireHousehold();
     requireCapability(ctx, 'routines:read');
+    const childId = new URL(req.url).searchParams.get('childId');
     const checklists = await prisma.checklist.findMany({
-      where: { householdId: ctx.householdId },
+      where: { householdId: ctx.householdId, ...(childId ? { childId } : {}) },
       include: { items: { orderBy: { order: 'asc' } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -34,11 +36,13 @@ export function POST(req: Request) {
       );
     }
 
-    const { items, ...data } = await readJson(req, checklistSchema);
+    const { items, childId, ...data } = await readJson(req, checklistSchema);
+    if (childId) await assertChildInHousehold(ctx, childId);
     const checklist = await prisma.checklist.create({
       data: {
         ...data,
         householdId: ctx.householdId,
+        childId: childId ?? null,
         items: items?.length ? { create: items.map((title, i) => ({ title, order: i })) } : undefined,
       },
       include: { items: { orderBy: { order: 'asc' } } },

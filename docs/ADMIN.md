@@ -12,6 +12,23 @@ is **not applicable** to a private foster-care app, plus a recommended roadmap.
 > foster-care product. Nothing in the new spec has been silently built — this is an honest
 > status report so you can decide what to prioritise.
 
+> ### 🆕 Update — admin build batch (shipped)
+> Since the original gap analysis, the following were implemented and verified:
+> - **Admin roles + granular permissions** ([src/lib/admin.ts](../src/lib/admin.ts)): 7 roles
+>   (SUPER_ADMIN/ADMIN/MANAGER/SUPPORT/MODERATOR/FINANCE_ADMIN/READ_ONLY) with a permission
+>   matrix; `requireAdminPermission()` enforces it on every admin route. Seeded admin = SUPER_ADMIN.
+> - **User management actions**: search/filter, suspend/reactivate, ban/unban, unlock, internal
+>   notes, **set admin role**, and delete — all audited with old/new values.
+> - **Settings module**: `Setting` table + admin Settings tab; **maintenance mode** (blocks
+>   non-admins) and **sign-ups enabled** toggles are wired into the app.
+> - **Notifications**: `Notification` table + admin Notifications tab; auto-generated on new
+>   sign-up and failed payment.
+> - **Dashboard tiles**: revenue, payment issues, unread alerts, access-denied (now emitted).
+> - **`ACCESS_DENIED`** security events are now logged on every 403.
+>
+> Still outstanding (see roadmap below): 2FA / separate admin login, support tickets, rich
+> analytics charts, a system-health page, email delivery, and reminder sending.
+
 **Legend:** ✅ implemented · 🟡 partial · ⬜ not built · ➖ not applicable to this product
 
 ## Summary

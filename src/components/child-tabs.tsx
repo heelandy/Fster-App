@@ -41,6 +41,7 @@ export function ChildTabs({ childId, perms }: { childId: string; perms: ChildPer
     { key: 'medications', label: '💊 Medications', show: perms.medications },
     { key: 'documents', label: '📄 Documents', show: perms.documents },
     { key: 'routines', label: '🔁 Routines', show: perms.routines },
+    { key: 'checklists', label: '✅ Checklists', show: perms.routines },
     { key: 'expenses', label: '💵 Expenses', show: perms.expenses },
     { key: 'contacts', label: '📇 Contacts', show: perms.contacts },
   ].filter((t) => t.show);
@@ -77,6 +78,9 @@ export function ChildTabs({ childId, perms }: { childId: string; perms: ChildPer
       {active === 'documents' && <DocumentsClient canWrite={perms.documentsWrite} fixedChildId={childId} />}
       {active === 'routines' && (
         <ChecklistClient title="Routines" endpoint="/api/routines" itemToggleEndpoint="/api/routine-tasks" itemsKey="tasks" canWrite={perms.routinesWrite} fixedChildId={childId} />
+      )}
+      {active === 'checklists' && (
+        <ChecklistClient title="Checklists" endpoint="/api/checklists" itemToggleEndpoint="/api/checklist-items" itemsKey="items" canWrite={perms.routinesWrite} fixedChildId={childId} />
       )}
       {active === 'expenses' && (
         <CrudResource title="Expenses" endpoint="/api/expenses" fields={expenseFields} columns={expenseColumns} canWrite={perms.expensesWrite} fixedChildId={childId} emptyText="No expenses for this child yet." />

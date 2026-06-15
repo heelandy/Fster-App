@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { ZodError } from 'zod';
+import { logSecurity } from './audit';
 
 /**
  * Standard error responses. Crucially these NEVER echo internal error messages,
@@ -36,6 +38,20 @@ export function handle(fn: () => Promise<Response> | Response) {
     .then(fn)
     .catch((err: unknown) => {
       if (err instanceof HttpError) {
+        // Record authorization failures for the admin security log.
+        if (err.status === 403) {
+          try {
+            const h = headers();
+            void logSecurity({
+              event: 'ACCESS_DENIED',
+              ip: (h.get('x-forwarded-for')?.split(',')[0] ?? h.get('x-real-ip') ?? 'unknown').trim(),
+              userAgent: h.get('user-agent'),
+              path: h.get('x-invoke-path'),
+            });
+          } catch {
+            // best-effort
+          }
+        }
         return NextResponse.json({ error: err.publicMessage }, { status: err.status });
       }
       if (err instanceof ZodError) {
