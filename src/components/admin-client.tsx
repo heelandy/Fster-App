@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { AdminTickets } from './admin-tickets';
+import { AdminAnalytics } from './admin-analytics';
+import { AdminSystem } from './admin-system';
+import { AdminIntegrations } from './admin-integrations';
 
 interface AdminUser {
   id: string;
@@ -51,7 +55,7 @@ interface Stats {
 
 const ADMIN_ROLES = ['', 'READ_ONLY', 'SUPPORT', 'MODERATOR', 'MANAGER', 'FINANCE_ADMIN', 'ADMIN', 'SUPER_ADMIN'];
 
-type Tab = 'overview' | 'users' | 'notifications' | 'settings' | 'security' | 'admin';
+type Tab = 'overview' | 'users' | 'tickets' | 'analytics' | 'notifications' | 'settings' | 'integrations' | 'system' | 'security' | 'admin';
 
 export function AdminClient() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -152,11 +156,20 @@ export function AdminClient() {
       <div className="mb-4 flex flex-wrap gap-2">
         {tabBtn('overview', 'Overview')}
         {tabBtn('users', `Users (${users.length})`)}
+        {tabBtn('tickets', 'Tickets')}
+        {tabBtn('analytics', 'Analytics')}
         {tabBtn('notifications', `Notifications${unread ? ` (${unread})` : ''}`)}
         {tabBtn('settings', 'Settings')}
+        {tabBtn('integrations', 'Integrations')}
+        {tabBtn('system', 'System')}
         {tabBtn('security', 'Security log')}
         {tabBtn('admin', 'Admin log')}
       </div>
+
+      {tab === 'tickets' && <AdminTickets />}
+      {tab === 'analytics' && <AdminAnalytics />}
+      {tab === 'integrations' && <AdminIntegrations />}
+      {tab === 'system' && <AdminSystem />}
 
       {tab === 'overview' && stats && (
         <div className="space-y-6">
@@ -307,7 +320,7 @@ export function AdminClient() {
           </div>
           <Toggle label="Maintenance mode" hint="Blocks the app for everyone except admins." checked={settings.maintenanceMode === 'true'} onChange={(v) => saveSetting('maintenanceMode', String(v))} />
           <Toggle label="Sign-ups enabled" hint="Allow new accounts to register." checked={settings.signupEnabled === 'true'} onChange={(v) => saveSetting('signupEnabled', String(v))} />
-          <Toggle label="Require email verification" hint="(Flag for future email-verification flow.)" checked={settings.emailVerificationRequired === 'true'} onChange={(v) => saveSetting('emailVerificationRequired', String(v))} />
+          <Toggle label="Require email verification" hint="Non-admins must confirm their email before using the app." checked={settings.emailVerificationRequired === 'true'} onChange={(v) => saveSetting('emailVerificationRequired', String(v))} />
         </div>
       )}
 

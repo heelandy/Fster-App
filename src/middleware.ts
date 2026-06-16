@@ -11,8 +11,8 @@ import { getToken } from 'next-auth/jwt';
  * the signed JWT only.
  */
 
-const PUBLIC_API_PREFIXES = ['/api/auth', '/api/stripe/webhook', '/api/health'];
-const PROTECTED_PAGE_PREFIXES = ['/dashboard', '/admin', '/billing'];
+const PUBLIC_API_PREFIXES = ['/api/auth', '/api/stripe/webhook', '/api/health', '/api/cron', '/api/invites'];
+const PROTECTED_PAGE_PREFIXES = ['/dashboard', '/admin', '/billing', '/account', '/support'];
 
 function buildCsp(nonce: string, isHttps: boolean): string {
   const isDev = process.env.NODE_ENV !== 'production';

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { ZodError } from 'zod';
 import { logSecurity } from './audit';
+import { captureError } from './observability';
 
 /**
  * Standard error responses. Crucially these NEVER echo internal error messages,
@@ -63,8 +64,8 @@ export function handle(fn: () => Promise<Response> | Response) {
           { status: 422 },
         );
       }
-      // Unknown error: log server-side, return a generic message.
-      console.error('[api] unhandled error:', err);
+      // Unknown error: report server-side, return a generic message.
+      captureError(err, { scope: 'api' });
       return NextResponse.json(
         { error: 'Something went wrong. Please try again.' },
         { status: 500 },

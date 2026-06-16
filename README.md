@@ -2,7 +2,7 @@
 
 A secure, private, mobile-friendly web application for foster parents to manage placement information, appointments, documents, daily routines, expenses, contacts, medications, and licensing requirements — built privacy-first for real foster-parent daily use.
 
-> **Status:** MVP complete. All acceptance criteria implemented. Build ✅ · Typecheck ✅ · Tests ✅ (26) · Security audit ✅ (see [`SECURITY_AUDIT_REPORT.md`](./SECURITY_AUDIT_REPORT.md)).
+> **Status:** MVP **+ full admin platform + production hardening** complete. Build ✅ · Typecheck ✅ · Tests ✅ (55) · Security audit ✅ (see [`SECURITY_AUDIT_REPORT.md`](./SECURITY_AUDIT_REPORT.md)). Going live? See [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
 ---
 
@@ -21,7 +21,15 @@ A secure, private, mobile-friendly web application for foster parents to manage 
 | **Licensing & compliance** | Training hours, inspections, background checks, renewals with due-date tracking. |
 | **Roles** | Foster Parent, Co-Parent (limitable), Babysitter/Respite (limited care view), Admin. |
 | **Billing** | Stripe Free/Family/Pro/Agency plans, monthly/annual, promo codes, portal, invoices, grace periods. |
-| **Admin** | System **overview** (aggregate counts only), user management & audit-log review. Admins cannot view private child data. |
+| **Account & security** | Self-service **password change**, **2FA (TOTP)** with backup codes, "sign out of all devices", and a **forgot-password** email flow. |
+| **Support** | In-app **support tickets** — users open threads, staff reply and set status. |
+| **Household invites** | Invite co-parents/babysitters by **email**; new users get a tokenised join link; pending invites are manageable. |
+| **Reminders** | Appointment reminders emailed via a scheduled **cron endpoint** (`/api/cron/reminders`). |
+| **Admin platform** | 10-tab console: overview, **user management** (suspend/ban/roles), **support tickets**, **analytics** (DAU/MAU/churn charts), notifications, **settings**, **integrations**, **system health**, security + admin audit logs. 7 staff roles with granular permissions. Admins cannot view private child data. |
+| **SuperAdmin Integrations** | TOTP‑gated page to configure **live Stripe keys/prices** and **register the Stripe webhook** from the UI (no code/env edits), plus email settings. Config resolves DB‑first with env fallback; secrets encrypted at rest. |
+| **Email verification** | Optional (admin‑toggleable) confirm‑your‑email flow at signup with resend. |
+| **Pluggable infra** | File storage `local` **or S3/R2**; optional **Redis** distributed rate limiting on credential endpoints; optional **error‑reporting** webhook; production **config‑validation** warnings in the System tab. |
+| **Legal** | `/privacy` + `/terms` + data‑retention scaffolds (counsel‑review templates). |
 
 ---
 
@@ -30,19 +38,21 @@ A secure, private, mobile-friendly web application for foster parents to manage 
 | Doc | What's inside |
 |---|---|
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | System overview, tech stack, request lifecycle, folder map, key design decisions. |
-| [docs/DATA_MODEL.md](./docs/DATA_MODEL.md) | All 25 models, relationships, enums, indexes. |
+| [docs/DATA_MODEL.md](./docs/DATA_MODEL.md) | All models, relationships, enums, indexes. |
 | [docs/API.md](./docs/API.md) | Full endpoint reference with auth/capability/feature per route. |
-| [docs/ADMIN.md](./docs/ADMIN.md) | Admin console today **and** a gap analysis vs the expanded 25-section admin spec, with a phased roadmap. |
+| [docs/ADMIN.md](./docs/ADMIN.md) | Admin console + the full spec-to-implementation map for all 25 admin sections. |
 | [docs/USER_GUIDE.md](./docs/USER_GUIDE.md) | Roles, plans, and a step-by-step exploration walkthrough (incl. babysitter mode). |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Go‑live runbook: hosting model, secrets, DB backups, TLS, Stripe/email, storage, cron, monitoring, legal. |
 | [SECURITY_AUDIT_REPORT.md](./SECURITY_AUDIT_REPORT.md) | Cybersecurity audit, OWASP checklist, and post-review remediation. |
 
 ## 🧱 Tech stack
 
 - **Next.js 14** (App Router) + **TypeScript**
-- **PostgreSQL** + **Prisma** ORM
-- **NextAuth** (credentials) + **bcrypt** password hashing
-- **Tailwind CSS**
+- **PostgreSQL** + **Prisma** ORM (with transparent **AES‑256‑GCM field encryption** middleware)
+- **NextAuth** (credentials) + **bcrypt** password hashing + **TOTP 2FA** (dependency-free, RFC 6238)
+- **Tailwind CSS** (admin analytics charts are dependency-free inline SVG)
 - **Stripe** (Checkout, Customer Portal, Webhooks)
+- **Resend** HTTP API for transactional email (pluggable; dev-log fallback)
 - **Zod** validation
 - Edge **middleware** (auth gating, nonce-based CSP), in-memory **rate limiting**, **audit logging**, private **file storage**
 - **Vitest** for tests
@@ -65,7 +75,10 @@ npm install
 ```bash
 cp .env.example .env
 ```
-Fill in at minimum `DATABASE_URL` and `NEXTAUTH_SECRET` (generate one with `openssl rand -base64 32`). Stripe vars are optional — billing degrades gracefully if unset.
+Fill in at minimum `DATABASE_URL`, `NEXTAUTH_SECRET` and `ENCRYPTION_KEY` (generate each with `openssl rand -base64 32` / `openssl rand -hex 32`). Optional, with safe fallbacks:
+- **Stripe** (`STRIPE_*`) — billing degrades gracefully if unset.
+- **Email** (`RESEND_API_KEY`, `EMAIL_FROM`) — unset ⇒ dev-log mode: reset/invite/reminder emails are printed to the server log (links still work locally) instead of being sent.
+- **Reminders** (`CRON_SECRET`) — set it, then schedule `GET/POST /api/cron/reminders` with header `Authorization: Bearer <CRON_SECRET>`. Unset ⇒ the endpoint is disabled (503).
 
 ### 3. Create the database schema
 ```bash
@@ -120,23 +133,29 @@ npm run prisma:studio
 
 ```
 prisma/
-  schema.prisma        # 24 models + enums
+  schema.prisma        # 32 models + enums
   seed.ts              # plans + demo accounts
 src/
   middleware.ts        # auth gating + nonce CSP + admin guard
   app/
     page.tsx           # landing + pricing
-    (auth)/            # login, register
-    (dashboard)/       # dashboard layout + all feature pages + /billing + /admin
-    api/               # all REST endpoints (auth, resources, stripe, admin, files)
-  components/           # UI: CRUD resource, forms, dashboards
+    (auth)/            # login, register, forgot/reset-password, invite-accept
+    (account)/         # /account — password, 2FA, sessions (no household required)
+    (dashboard)/       # dashboard layout + feature pages + /billing + /support
+    (admin)/           # /admin console (own route group, 9 tabs)
+    api/               # REST endpoints: auth, account, resources, support,
+                       #   invites, cron, stripe, admin, files
+  components/           # UI: CRUD resource, forms, dashboards, admin tabs
   lib/
-    auth.ts            # NextAuth config (bcrypt, lockout, audit)
-    authz.ts           # RBAC capability matrix + household scoping + sanitisation
+    auth.ts            # NextAuth config (bcrypt, lockout, 2FA, audit)
+    authz.ts           # RBAC capability matrix + household scoping + tokenVersion
+    admin.ts           # granular admin-permission matrix
+    totp.ts / tokens.ts / email.ts   # 2FA, hashed tokens, pluggable email
     household-resource.ts  # generic IDOR-safe CRUD factory
     plans.ts           # plan catalogue + feature gating (source of truth)
+    crypto.ts          # AES-256-GCM field/file encryption
     storage.ts         # private file storage (path-traversal safe)
-    stripe.ts / billing-sync.ts
+    stripe.ts / billing-sync.ts / notify.ts / settings.ts
     rate-limit.ts / audit.ts / validation.ts / http.ts / request.ts / env.ts
 storage/uploads/        # private files (git-ignored)
 SECURITY_AUDIT_REPORT.md
@@ -148,10 +167,12 @@ SECURITY_AUDIT_REPORT.md
 
 - Household-scoped **RBAC** with deny-by-default capabilities; **IDOR-safe** queries everywhere.
 - **bcrypt(12)** hashing, **account lockout**, login **rate limiting**, anti-enumeration.
+- **Two-factor authentication (TOTP)** with one-time backup codes; **forced logout** of all sessions via a per-user `tokenVersion` (bumped on password reset / "sign out everywhere").
+- **AES-256-GCM encryption at rest** for sensitive child/medical fields, the 2FA secret, and uploaded files (transparent Prisma middleware). Reset/invite tokens are stored **hashed**, never raw.
 - **Private documents** served only through an authenticated, ownership-checked route — never a public URL.
 - **Nonce-based CSP**, strict security headers, CSRF origin checks, generic error handling.
-- **Signed Stripe webhooks**; entitlements derived only from verified events.
-- **Audit logs** for security events and admin actions.
+- **Signed Stripe webhooks**; entitlements derived only from verified events. Card data never touches the server.
+- **Audit logs** for security events and admin actions (with old→new diffs on admin mutations).
 
 Full details and the OWASP Top 10 checklist are in [`SECURITY_AUDIT_REPORT.md`](./SECURITY_AUDIT_REPORT.md).
 
@@ -160,6 +181,15 @@ Full details and the OWASP Top 10 checklist are in [`SECURITY_AUDIT_REPORT.md`](
 ## ✅ Acceptance criteria coverage
 
 Foster parents can create a household ✔ · create child profiles ✔ · track appointments ✔ · upload private documents securely ✔ · log medications & daily care ✔ · track expenses & receipts ✔ · manage contacts ✔ · create routines & checklists ✔ · track licensing ✔ · subscribe to paid plans ✔ · Stripe billing works ✔ · free users gated from paid features ✔ · babysitters see only limited care info ✔ · unauthorized users cannot view child data ✔ · admin routes protected ✔ · security audit complete ✔ · app builds & runs locally with no errors ✔.
+
+---
+
+## 🧭 Planned / deferred
+
+These are intentionally **not** in the current build and are tracked as separately-verified follow-ups:
+
+- **Next.js 14 → 16 major upgrade.** Deferred on purpose. The app runs on the **patched, secure 14.2.35**; there's no outstanding advisory forcing the jump. Next 15/16 make `cookies()`/`headers()`/`params`/`searchParams` **async**, which would ripple through the security wrappers (`assertSameOrigin` CSRF, `mutationGuard` rate-limit) across ~25 routes — a wide change whose only build-uncatchable failure mode is a silently-skipped guard. It deserves its own focused, fully-audited pass rather than being bundled in.
+- **Operational hardening for production:** managed Postgres **backups** (or `pg_dump` cron), **S3/private object storage** instead of the local dir, and a **Redis-backed** rate limiter (the in-memory limiter is single-instance).
 
 ---
 

@@ -6,6 +6,7 @@ import { isFlagOn } from '@/lib/settings';
 import { DashboardNav, type NavItem } from '@/components/dashboard-nav';
 import { MobileNav } from '@/components/mobile-nav';
 import { SignOutButton } from '@/components/sign-out-button';
+import { VerifyEmailNeeded } from '@/components/resend-verification';
 
 function Maintenance() {
   return (
@@ -55,6 +56,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return <Maintenance />;
   }
 
+  // Email verification gate (when enabled): non-admins must confirm their email.
+  if (user.role !== 'ADMIN' && !user.emailVerifiedAt && (await isFlagOn('emailVerificationRequired'))) {
+    return <VerifyEmailNeeded email={user.email ?? ''} />;
+  }
+
   let ctx;
   try {
     ctx = await requireHousehold();
@@ -80,6 +86,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     items.push({ href: '/dashboard/licensing', label: 'Licensing', icon: '🛡️' });
   if (can(ctx, 'members:manage')) items.push({ href: '/dashboard/household', label: 'Household', icon: '🏠' });
   if (can(ctx, 'billing:manage')) items.push({ href: '/billing', label: 'Billing', icon: '💳' });
+  items.push({ href: '/support', label: 'Support', icon: '💬' });
+  items.push({ href: '/account', label: 'Account', icon: '👤' });
   if (ctx.globalRole === 'ADMIN') items.push({ href: '/admin', label: 'Admin', icon: '⚙️' });
 
   return (

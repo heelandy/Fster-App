@@ -12,6 +12,7 @@ import { encryptString, decryptString } from './crypto';
  * is fine. Amounts (`amountCents`) stay plaintext so aggregates still work.
  */
 const ENCRYPTED_FIELDS: Record<string, string[]> = {
+  User: ['twoFactorSecret'],
   ChildProfile: [
     'caseNumber',
     'caseworkerName',

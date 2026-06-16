@@ -49,13 +49,14 @@ async function main() {
   const adminEmail = 'admin@example.com';
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { globalRole: 'ADMIN', adminRole: 'SUPER_ADMIN' },
+    update: { globalRole: 'ADMIN', adminRole: 'SUPER_ADMIN', emailVerifiedAt: new Date() },
     create: {
       email: adminEmail,
       name: 'System Admin',
       passwordHash: await bcrypt.hash('Admin12345', 12),
       globalRole: 'ADMIN',
       adminRole: 'SUPER_ADMIN',
+      emailVerifiedAt: new Date(),
     },
   });
   const adminHasHousehold = await prisma.householdMember.findFirst({ where: { userId: admin.id } });
@@ -77,6 +78,7 @@ async function main() {
         email: parentEmail,
         name: 'Demo Foster Parent',
         passwordHash: await bcrypt.hash('Parent12345', 12),
+        emailVerifiedAt: new Date(),
       },
     });
     const household = await prisma.household.create({ data: { name: 'The Demo Home', ownerId: parent.id } });

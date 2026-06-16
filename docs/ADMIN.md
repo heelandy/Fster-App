@@ -29,6 +29,42 @@ is **not applicable** to a private foster-care app, plus a recommended roadmap.
 > Still outstanding (see roadmap below): 2FA / separate admin login, support tickets, rich
 > analytics charts, a system-health page, email delivery, and reminder sending.
 
+> ### 🆕 Update — admin build batch 2 (shipped 2026-06-16)
+> The "still outstanding" items above are now implemented and verified (typecheck +
+> production build + 49 unit tests):
+> - **2FA / TOTP** ([lib/totp.ts](../src/lib/totp.ts), dependency-free RFC 6238) for **all** users,
+>   enforced at login, with one-time **backup codes**. Self-serve at **/account** (change
+>   password, enable/disable 2FA, **sign out of all devices**).
+> - **Password reset** (`/forgot-password` → emailed link → `/reset-password`) with single-use,
+>   hashed tokens; **forced logout** via a per-user `tokenVersion` bumped on reset / "sign out
+>   everywhere" (instantly invalidates outstanding JWTs in `requireUser`).
+> - **Support tickets**: user threads (`/support`) + a staff **Tickets** tab (reply + status,
+>   `support.manage` permission); admin notified on new ticket.
+> - **Analytics** tab: DAU/WAU/MAU, stickiness, sign-ups & active-users charts (dependency-free
+>   inline SVG), churn — `analytics.view`.
+> - **System** tab: DB latency, storage usage, memory/uptime, integration status — `system.view`.
+> - **Email delivery** ([lib/email.ts](../src/lib/email.ts)): pluggable Resend HTTP sender; unset key ⇒
+>   dev-log mode. Powers resets, invites and reminders.
+> - **Email-based household invites**: tokenised invite + accept flow (`/invite`), pending-invite
+>   management on the Household page.
+> - **Reminder sending**: `POST /api/cron/reminders` (Bearer `CRON_SECRET`) emails due appointment
+>   reminders, idempotent via `reminderSent`.
+>
+> New admin permissions: `support.manage`, `analytics.view`, `system.view`. The admin console now
+> has **9 tabs**: Overview · Users · Tickets · Analytics · Notifications · Settings · System ·
+> Security log · Admin log. Only **Next.js 14→16** remains from the original roadmap — deliberately
+> deferred (staying on the patched 14.2.35; see README "Planned / deferred").
+
+> ### 🆕 Update — production-readiness batch (shipped)
+> - **SuperAdmin Integrations tab** ([admin-integrations.tsx](../src/components/admin-integrations.tsx)): TOTP **step-up** gated
+>   ([lib/stepup.ts](../src/lib/stepup.ts)); configure **live Stripe keys/prices**, **register the Stripe webhook from the UI**
+>   (calls Stripe's API, stores the signing secret), and email settings — no code/env edits. All Stripe/email config now
+>   resolves **DB-first with env fallback** ([lib/config.ts](../src/lib/config.ts)); secrets encrypted at rest, masked in responses.
+> - **Email verification** flow (now wired to the `emailVerificationRequired` setting), **production config-validation**
+>   warnings in the **System** tab, pluggable **S3/R2 storage** + **Redis** rate limiting + **error-reporting** webhook.
+> - Go-live runbook: [DEPLOYMENT.md](../DEPLOYMENT.md). Legal scaffolds: `/privacy`, `/terms`.
+> - New permissions in use: `admins.manage` gates Integrations (SuperAdmin only).
+
 **Legend:** ✅ implemented · 🟡 partial · ⬜ not built · ➖ not applicable to this product
 
 ## Summary

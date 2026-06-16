@@ -192,10 +192,11 @@ Every entry was verified by reading the handler. Babysitter limited-access and f
 
 - Critical findings: **0 open** (all fixed).
 - High findings: **0 open** at the application layer (framework dependency items mitigated/accepted with documented rationale).
-- Automated security tests: **26 passing**.
+- Automated security tests: **49 passing** (see §9 for the later batch).
 - Build: **passing**. Typecheck: **passing**.
 
 **✅ This audit is marked COMPLETE. The application meets the security acceptance criteria.**
+**Update:** §6.1 (field-level encryption) and §6.4 (2FA/TOTP) — originally listed as recommendations — are now **implemented**; see §9.
 
 ---
 
@@ -220,3 +221,32 @@ A follow-up multi-angle code review surfaced 15 findings; all were addressed:
 | 13–15 | Cleanup: factory limit-hook reuse, triplicated enum lists, duplicate expenses fetch | Added the factory limit hook; introduced `src/lib/enums.ts` as the single source for enum values (consumed by Zod + UI); expenses totals computed server-side so the summary no longer refetches the list. |
 
 Re-verification after remediation: typecheck ✅, production build ✅, tests ✅.
+
+---
+
+## 9. Admin platform & account-security batch (2026-06-16)
+
+This batch implemented several **§6 recommendations** and added new authenticated surface.
+Security-relevant design decisions:
+
+| Area | Control |
+|---|---|
+| **2FA / TOTP** (§6.4) | Dependency-free RFC 6238 (`lib/totp.ts`). Secret generated server-side, **encrypted at rest**, and only activated after the user proves a valid code. Verification is constant-time with ±1 step drift. One-time **backup codes** are stored **bcrypt-hashed** and consumed on use. |
+| **Field-level encryption** (§6.1) | AES-256-GCM Prisma middleware now also covers `User.twoFactorSecret`. Sensitive child/medical fields and files were already encrypted at rest. |
+| **Password reset** | Tokens are random 256-bit, stored **SHA-256 hashed** (raw token only in the emailed link), single-use, 1-hour expiry. The endpoint is **non-enumerating** (always returns `200`). Reset **bumps `tokenVersion`** → forced logout of all sessions. |
+| **Forced logout** | `requireUser()` compares the JWT's `tokenVersion` to the DB; "sign out of all devices" and password reset increment it, instantly invalidating outstanding tokens (closes the 8h-JWT window for compromised sessions). |
+| **Email invites** | Invite tokens are SHA-256 hashed; acceptance **requires the signed-in email to match** the invited address (a leaked link can't be redeemed by another account). 7-day expiry, revocable. |
+| **Reminder cron** | `/api/cron/reminders` requires `Authorization: Bearer <CRON_SECRET>` (constant-time compare); **disabled (503)** when the secret is unset, so it can't be triggered anonymously. Added to the middleware public-API list intentionally — it self-guards. |
+| **Granular admin perms** | New `support.manage` / `analytics.view` / `system.view` permissions; every new admin route calls `requireAdminPermission(...)`. Admin analytics/health expose **aggregates only** — no child records. |
+| **CSRF/rate-limit parity** | All new mutations go through `mutationGuard` (Origin check + per-user rate limit) or, for public auth routes, IP rate limiting. New `RateLimits.login` already in place. |
+
+Runtime smoke tests (authenticated): parent ticket create `201` → visible to admin; 2FA setup
+returns a valid secret/otpauth URI; admin analytics/health `200`; cron `401` without token /
+`200` with it; reset/invite/2fa/admin endpoints all `401` unauthenticated.
+
+Re-verification: typecheck ✅, production build ✅, **tests 49 ✅**, smoke tests ✅.
+
+> **Note on §6.5 (Next.js upgrade):** intentionally deferred. The app remains on the **patched
+> 14.2.35**. The 15/16 async-request-API migration would touch the CSRF/rate-limit wrappers across
+> ~25 routes, where a missed `await` silently disables a guard — so it warrants a dedicated,
+> fully-audited pass rather than inclusion here.

@@ -1,11 +1,11 @@
 Foster app
 
 ==================================================================
-✅ BUILD STATUS — COMPLETED 2026-06-15
+✅ BUILD STATUS — CORE COMPLETED 2026-06-15 · ADMIN PLATFORM 2026-06-16
 ==================================================================
 The Foster Care Home Management System has been built. Each section
 below is marked [✅ DONE]. Verification: Prisma schema valid, Next.js
-production build passing, TypeScript typecheck passing, 26 unit tests
+production build passing, TypeScript typecheck passing, 49 unit tests
 passing, and a full cybersecurity audit completed (SECURITY_AUDIT_REPORT.md).
 See README.md for setup and run instructions.
 
@@ -16,11 +16,62 @@ Payment plan options ........... [✅ DONE]
 Stripe requirements ............ [✅ DONE]
 Security & privacy ............. [✅ DONE]
 Cybersecurity test/report ...... [✅ DONE]
-Database models (24) ........... [✅ DONE]
+Database models (32) ........... [✅ DONE]
 Tech stack ..................... [✅ DONE]
 Deliverables ................... [✅ DONE]
 Acceptance criteria ............ [✅ DONE]
 Build instructions (all steps) . [✅ DONE]
+==================================================================
+
+==================================================================
+✅ ADMIN PLATFORM STATUS (spec sections 1–25, starting line 492)
+==================================================================
+Built across two batches and verified (typecheck + build + tests).
+Legend: ✅ done · 🟡 partial · ➖ not applicable to a private foster app
+
+ 1. Admin purpose (control center) .......... ✅ /admin console, 9 tabs
+ 2. Admin user roles (7 staff tiers) ........ ✅ SUPER_ADMIN…READ_ONLY
+ 3. Admin login system ...................... ✅ 2FA(TOTP), password reset,
+        forced logout, attempt limits, IP logging, session timeout, activity log
+        (🟡 no separate admin-only login page / per-device list)
+ 4. Admin dashboard ......................... ✅ users/active/revenue/failed-pay/
+        open-tickets/security/server+db+api status tiles
+ 5. User management module .................. ✅ search, suspend/ban/unlock/note/
+        role/delete, all audited
+ 6. Admin management (manage admins) ........ ✅ set admin role from Users tab
+ 7. Permission system (granular) ........... ✅ adminCan() matrix per route
+ 8. Content management ...................... ➖ no public/UGC surface
+ 9. Reports & moderation .................... ➖ (covered instead by Support 11)
+10. Payments & subscription module .......... 🟡 Stripe + finance tiles; refunds
+        delegated to the Stripe Dashboard
+11. Support ticket module ................... ✅ user threads + staff replies/status
+12. Settings module ........................ ✅ maintenance/signup/app-name flags
+13. Analytics & reporting .................. ✅ DAU/WAU/MAU, signups, churn, charts
+14. Audit log system ....................... ✅ admin + security logs, old/new diffs
+15. Notification system .................... ✅ admin alerts on signup/payment/ticket
+16. Security architecture .................. ✅ + 2FA + field-level encryption at rest
+17. Database structure ..................... ✅ users/roles/tickets/settings/
+        notifications/invites/reset-tokens
+18. Backend architecture (services) ........ ✅ lib/ services for every module
+19. Frontend admin panel ................... ✅ 9 tabs
+20. API structure (admin routes) .......... ✅ users/tickets/analytics/health/
+        settings/notifications/audit
+21. System health module ................... ✅ DB latency, storage, memory, env
+22. Backup & recovery ...................... 🟡 operational — documented (pg_dump /
+        managed Postgres backups); not application code
+23. Admin workflow ......................... ✅ login → dashboard → act → audit
+24. Recommended tech stack ................. ✅ documented variant (Next route
+        handlers, NextAuth, Resend email, local private storage)
+25. Final architecture summary ............. ✅ ~22/25 areas implemented
+
+Account security (all users): /account — change password, enable/disable 2FA
+with backup codes, "sign out of all devices". Forgot-password at /forgot-password.
+Email-based household invites at /dashboard/household (accept at /invite).
+Appointment reminders fire via POST /api/cron/reminders (Bearer CRON_SECRET).
+Pluggable email = Resend HTTP API; unset key ⇒ dev-log mode (links in server log).
+Remaining/optional: Next.js 14→16 major upgrade (deferred — staying on the
+patched 14.2.35; tracked as separately-verified future work), managed DB
+backups, S3/object storage, Redis-backed rate limiting.
 ==================================================================
 
 Yes — Foster Care Management App:

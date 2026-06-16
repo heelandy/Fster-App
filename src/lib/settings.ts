@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { encryptString, decryptString } from './crypto';
 
 /**
  * System settings, stored as key/value rows and overlaid on these defaults.
@@ -35,4 +36,29 @@ export async function setSetting(key: string, value: string, updatedBy?: string)
     update: { value, updatedBy },
     create: { key, value, updatedBy },
   });
+}
+
+/** Read any setting row by arbitrary key (not limited to SETTING_DEFAULTS). */
+export async function getSettingValue(key: string): Promise<string | null> {
+  const row = await prisma.setting.findUnique({ where: { key } });
+  return row?.value ?? null;
+}
+
+/**
+ * Store a secret setting (Stripe/email keys) encrypted at rest. An empty value
+ * clears it (so config falls back to the environment variable).
+ */
+export async function setSecret(key: string, value: string, updatedBy?: string) {
+  await setSetting(key, value ? encryptString(value) : '', updatedBy);
+}
+
+/** Read and decrypt a secret setting. Returns '' if unset or undecryptable. */
+export async function getSecret(key: string): Promise<string> {
+  const row = await prisma.setting.findUnique({ where: { key } });
+  if (!row?.value) return '';
+  try {
+    return decryptString(row.value);
+  } catch {
+    return '';
+  }
 }

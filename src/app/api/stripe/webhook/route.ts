@@ -1,8 +1,8 @@
 import type Stripe from 'stripe';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { getStripe, stripeConfigured } from '@/lib/stripe';
-import { env } from '@/lib/env';
+import { getStripe, isStripeConfigured } from '@/lib/stripe';
+import { getStripeWebhookSecret } from '@/lib/config';
 import { syncSubscription, markCanceled, recordInvoice } from '@/lib/billing-sync';
 import { logSecurity } from '@/lib/audit';
 import { notifyAdmins } from '@/lib/notify';
@@ -12,19 +12,20 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
-  if (!stripeConfigured || !env.STRIPE_WEBHOOK_SECRET) {
+  const webhookSecret = await getStripeWebhookSecret();
+  if (!(await isStripeConfigured()) || !webhookSecret) {
     return new Response('Stripe not configured', { status: 503 });
   }
 
   const signature = req.headers.get('stripe-signature');
   if (!signature) return new Response('Missing signature', { status: 400 });
 
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const raw = await req.text();
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(raw, signature, env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(raw, signature, webhookSecret);
   } catch {
     // Signature verification failed — reject spoofed/replayed events.
     await logSecurity({ event: 'WEBHOOK_SIGNATURE_INVALID', path: '/api/stripe/webhook' });

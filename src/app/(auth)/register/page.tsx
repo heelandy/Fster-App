@@ -18,6 +18,11 @@ export default function RegisterPage() {
           </p>
           <RegisterForm />
         </div>
+        <p className="mt-4 text-center text-xs text-slate-500">
+          By creating an account you agree to our{' '}
+          <Link href="/terms" className="text-brand-700 hover:underline">Terms</Link> and{' '}
+          <Link href="/privacy" className="text-brand-700 hover:underline">Privacy Policy</Link>.
+        </p>
       </div>
     </main>
   );

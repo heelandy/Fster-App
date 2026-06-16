@@ -4,6 +4,7 @@ import { handle, json } from '@/lib/http';
 import { logAdmin } from '@/lib/audit';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // auth-gated, per-request — never prerender
 
 /**
  * System-wide overview for admins. Returns AGGREGATE COUNTS ONLY — never any

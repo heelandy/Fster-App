@@ -28,6 +28,33 @@ const schema = z.object({
   FILE_STORAGE_DIR: z.string().default('./storage/uploads'),
   MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(10_485_760),
   ALLOWED_ORIGINS: z.string().default('http://localhost:3000'),
+
+  // Storage backend: "local" (default, private disk) or "s3" (S3/Cloudflare R2).
+  // On serverless/multi-instance hosts the local disk is ephemeral — use "s3".
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_S3_ENDPOINT: z.string().default(''), // e.g. https://<acct>.r2.cloudflarestorage.com
+  STORAGE_S3_REGION: z.string().default('auto'),
+  STORAGE_S3_BUCKET: z.string().default(''),
+  STORAGE_S3_ACCESS_KEY_ID: z.string().default(''),
+  STORAGE_S3_SECRET_ACCESS_KEY: z.string().default(''),
+
+  // Transactional email (Resend HTTP API). Unset = dev mode: messages are logged
+  // to the server console (so reset/invite links are usable locally) but not sent.
+  RESEND_API_KEY: z.string().default(''),
+  EMAIL_FROM: z.string().default('Foster Care HMS <onboarding@resend.dev>'),
+
+  // Shared secret guarding the reminder cron endpoint (Bearer token). Unset =
+  // the endpoint is disabled (returns 503) so it cannot be triggered anonymously.
+  CRON_SECRET: z.string().default(''),
+
+  // Optional Upstash Redis (REST) for DISTRIBUTED rate limiting of credential
+  // endpoints across instances/serverless. Unset = per-instance in-memory only.
+  UPSTASH_REDIS_REST_URL: z.string().default(''),
+  UPSTASH_REDIS_REST_TOKEN: z.string().default(''),
+
+  // Optional error-reporting webhook (Slack/Discord/Sentry-relay/custom). When set,
+  // unhandled server errors are POSTed here as JSON. Unset = console logging only.
+  ERROR_WEBHOOK_URL: z.string().default(''),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -45,3 +72,6 @@ export const allowedOrigins = env.ALLOWED_ORIGINS.split(',')
   .filter(Boolean);
 
 export const stripeConfigured = env.STRIPE_SECRET_KEY.startsWith('sk_');
+export const emailConfigured = env.RESEND_API_KEY.length > 0;
+export const redisConfigured =
+  env.UPSTASH_REDIS_REST_URL.length > 0 && env.UPSTASH_REDIS_REST_TOKEN.length > 0;

@@ -3,6 +3,7 @@ import { requireAdminPermission } from '@/lib/authz';
 import { handle, json } from '@/lib/http';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // auth-gated, per-request — never prerender
 
 export function GET() {
   return handle(async () => {

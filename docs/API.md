@@ -17,8 +17,30 @@ ever resolved together with the session's `householdId`.
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | POST | `/api/auth/register` | public | Rate-limited. Body `{name,email,password,householdName}`. Creates user + household + FREE subscription. |
-| * | `/api/auth/[...nextauth]` | public | NextAuth (signin/callback/csrf/session/signout). Credentials provider with bcrypt, lockout, per-IP rate limit. |
+| * | `/api/auth/[...nextauth]` | public | NextAuth (signin/callback/csrf/session/signout). Credentials provider with bcrypt, lockout, per-IP rate limit, optional `totp`/`backupCode` second factor. |
+| POST | `/api/auth/forgot-password` | public | Rate-limited. Body `{email}`. Always `200` (no enumeration); emails a single-use, hashed reset token if the account exists. |
+| POST | `/api/auth/reset-password` | public | Body `{token,password}`. Validates the token, sets the new password, and bumps `tokenVersion` (forced logout of all sessions). |
+| POST | `/api/auth/verify-email` | public | Body `{token}`. Confirms the email address. Rate-limited (in-memory + distributed). |
+| POST | `/api/auth/resend-verification` | user | Re-sends the verification email for the signed-in, still-unverified user. |
 | GET | `/api/health` | public | Liveness probe. |
+| GET | `/api/invites/[token]` | public | Look up a household invite (rate-limited; token is the capability). |
+| GET/POST | `/api/cron/reminders` | public + `Bearer CRON_SECRET` | Sends due appointment reminders by email. Idempotent (`reminderSent`). `503` if `CRON_SECRET` unset, `401` on bad token. |
+
+## Account & security — authenticated (self-service)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/account/password` | Change password. Body `{currentPassword,newPassword}` (verifies current). |
+| POST | `/api/account/2fa/setup` | Begin TOTP enrollment; returns `{secret, otpauthUri}` (not yet enabled). |
+| POST | `/api/account/2fa/enable` | Confirm TOTP `{code}`; activates 2FA and returns one-time `backupCodes`. |
+| POST | `/api/account/2fa/disable` | Disable 2FA. Body `{password}` (re-auth required). |
+| POST | `/api/account/logout-all` | "Sign out of all devices" — bumps `tokenVersion`, invalidating every JWT incl. the current one. |
+
+## Support tickets
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET/POST | `/api/support/tickets` | user | List own tickets / open a new one (`{subject,message,priority}`); notifies admins. |
+| GET | `/api/support/tickets/[id]` | user | Own ticket + messages (IDOR-scoped by `userId`). |
+| POST | `/api/support/tickets/[id]/messages` | user | Reply (`{body}`); reopens ticket to `OPEN`. |
 
 ## Children — capability `children:read` / `children:write`
 | Method | Path | Notes |
@@ -72,17 +94,37 @@ ever resolved together with the session's `householdId`.
 | POST | `/api/household/members` | Add an existing user by email. CO_PARENT requires feature `coParentAccess`; BABYSITTER requires `babysitterMode`. |
 | DELETE | `/api/household/members/[id]` | Owner cannot be removed. |
 | POST | `/api/household/switch` | Set active household cookie (verifies membership first). |
+| GET/POST | `/api/household/invites` | List pending invites / invite by email. Adds existing users directly; emails a tokenised link to new ones (`{invited:true}`). Same feature gates as members. |
+| DELETE | `/api/household/invites/[id]` | Revoke a pending invite (household-scoped). |
+
+## Invites — accept flow
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/invites/[token]` | public | Look up an invite (household name, target email, role). `404` if invalid/expired/used. |
+| POST | `/api/invites/accept` | user | Accept `{token}`. Requires the signed-in email to match the invite address; creates membership + marks accepted. |
 
 ## Billing — capability `billing:manage`
 | POST | `/api/stripe/checkout` | Creates a Stripe Checkout session (resolves promo code → promotion-code id). |
 | POST | `/api/stripe/portal` | Opens the Stripe Customer Portal. |
 | POST | `/api/stripe/webhook` | **Public, signature-verified.** Idempotent (dedup by event id). Syncs subscription status, grace periods, invoices/payments. |
 
-## Admin — global `ADMIN` (via middleware + `requireAdmin`)
-| GET | `/api/admin/stats` | Aggregate counts only (no child records). |
-| GET | `/api/admin/users` | Account metadata (no password hashes, no child data). |
-| GET | `/api/admin/audit` | Recent admin + security audit logs. |
+## Admin — global `ADMIN` (via middleware) + granular permission (`lib/admin.ts`)
+| Method | Path | Permission | Notes |
+|---|---|---|---|
+| GET | `/api/admin/stats` | `users.view` | Aggregate counts only (no child records): users, revenue, payment issues, security 24h. |
+| GET | `/api/admin/users` | `users.view` | Account metadata + `?q=` search. No password hashes, no child data. |
+| PATCH/DELETE | `/api/admin/users/[id]` | per-action | suspend/reactivate/ban/unban/unlock/note/setAdminRole (per-action permission) / delete (`users.delete`). Audited old→new; blocks self-suspend/ban/delete. |
+| GET/PATCH | `/api/admin/settings` | `settings.update` | Read / write system flags (maintenance, signup, app name). |
+| GET/PATCH | `/api/admin/notifications` | `users.view` | List / mark read (one or all). |
+| GET | `/api/admin/tickets` | `support.manage` | List tickets (`?status=` filter). |
+| GET/PATCH | `/api/admin/tickets/[id]` | `support.manage` | Ticket + messages / change status (audited). |
+| POST | `/api/admin/tickets/[id]/messages` | `support.manage` | Staff reply; moves ticket to `PENDING`. |
+| GET | `/api/admin/analytics` | `analytics.view` | DAU/WAU/MAU, 30-day signup & active-user series, churn. |
+| GET | `/api/admin/health` | `system.view` | DB latency, storage usage, memory/uptime, integration + queue status, **config warnings**. |
+| GET | `/api/admin/audit` | `logs.view` | Recent admin + security audit logs. |
+| POST | `/api/admin/step-up` | admin | Re-verify TOTP to unlock sensitive config; sets a 10-min step-up cookie. |
+| GET/POST | `/api/admin/integrations` | `admins.manage` + step-up | Read/write Stripe + email config (secrets encrypted, masked in responses). |
+| POST | `/api/admin/integrations/stripe/webhook` | `admins.manage` + step-up | Registers the Stripe webhook endpoint via the Stripe API and stores its signing secret. |
 
-> See [ADMIN.md](./ADMIN.md) for how this maps to the expanded admin specification and
-> which additional admin routes (suspend/ban, refunds, settings, tickets, etc.) are not
-> yet implemented.
+> Refunds remain delegated to the Stripe Dashboard. See [ADMIN.md](./ADMIN.md) for the full
+> spec-to-implementation map (all 25 admin sections).

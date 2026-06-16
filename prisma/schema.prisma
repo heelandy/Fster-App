@@ -137,6 +137,20 @@ enum RoutineType {
   CUSTOM
 }
 
+enum TicketStatus {
+  OPEN // awaiting staff
+  PENDING // awaiting user reply
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 // ───────────────────────────── Auth / Tenancy ─────────────────────────────
 
 model User {
@@ -152,6 +166,13 @@ model User {
   failedLogins  Int        @default(0)
   lockedUntil   DateTime?
   lastLoginAt   DateTime?
+  // Two-factor (TOTP). Secret is encrypted at rest (see lib/prisma.ts middleware).
+  twoFactorSecret    String?
+  twoFactorEnabledAt DateTime?
+  twoFactorBackupCodes Json? // array of bcrypt-hashed single-use recovery codes
+  // Bumped to invalidate every existing session (password reset / forced logout).
+  tokenVersion  Int        @default(0)
+  emailVerifiedAt DateTime? // set when the user confirms their email address
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -159,6 +180,10 @@ model User {
   memberships     HouseholdMember[]
   adminAuditLogs  AdminAuditLog[]    @relation("AdminActor")
   securityLogs    SecurityAuditLog[] @relation("SecurityActor")
+  passwordResets  PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
+  supportTickets  SupportTicket[]
+  supportMessages SupportMessage[]   @relation("SupportAuthor")
 
   @@index([email])
 }
@@ -173,6 +198,7 @@ model Household {
   updatedAt       DateTime @updatedAt
 
   members      HouseholdMember[]
+  invites      HouseholdInvite[]
   children     ChildProfile[]
   appointments Appointment[]
   documents    Document[]
@@ -640,4 +666,87 @@ model SecurityAuditLog {
 
   @@index([event, createdAt])
   @@index([actorId])
+}
+
+// ───────────────────────────── Account recovery ─────────────────────────────
+
+// Single-use password-reset tokens. Only a SHA-256 hash of the token is stored;
+// the raw token is emailed and never persisted.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Single-use email-verification tokens (hash stored, raw emailed).
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ───────────────────────────── Support tickets ─────────────────────────────
+
+model SupportTicket {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject       String
+  status        TicketStatus   @default(OPEN)
+  priority      TicketPriority @default(NORMAL)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  lastMessageAt DateTime       @default(now())
+
+  messages SupportMessage[]
+
+  @@index([userId])
+  @@index([status, lastMessageAt])
+}
+
+model SupportMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?         @relation("SupportAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  fromStaff Boolean       @default(false)
+  body      String
+  createdAt DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+// ───────────────────────────── Household invites ─────────────────────────────
+
+// Email-based invitation to join a household. Only a hash of the token is stored;
+// the raw token travels in the emailed accept link.
+model HouseholdInvite {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  email       String
+  role        HouseholdRole @default(CO_PARENT)
+  permissions Json          @default("{}")
+  tokenHash   String        @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@index([householdId])
+  @@index([email])
 }

@@ -3,18 +3,22 @@ import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { env } from './env';
 import { encryptBytes, decryptBytes } from './crypto';
+import { s3Configured, s3Put, s3Get, s3Delete } from './storage-s3';
 
 /**
  * Private, access-controlled file storage.
  *
- * Files are written OUTSIDE the Next.js `/public` directory under a random,
- * unguessable storage key. They are never served by a static URL — only through
- * the authenticated `/api/files/[id]` route after an ownership + permission check.
- * This is the primary defence against IDOR, public-bucket leakage, and
- * unauthenticated document access.
+ * Files are stored under a random, unguessable storage key and are never served
+ * by a static URL — only through the authenticated `/api/files/[id]` route after
+ * an ownership + permission check. The backend is pluggable via STORAGE_DRIVER:
+ *   - "local" (default): private disk dir, OUTSIDE Next's `/public`.
+ *   - "s3": S3-compatible object storage (AWS S3 / Cloudflare R2) — required on
+ *     serverless/multi-instance hosts where the local disk is ephemeral.
+ * Bytes are AES-256-GCM encrypted by the app before they reach either backend.
  */
 
 const STORAGE_ROOT = path.resolve(process.cwd(), env.FILE_STORAGE_DIR);
+const USE_S3 = s3Configured();
 
 export const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -31,6 +35,14 @@ export const ALLOWED_MIME_TYPES = new Set([
 
 export function isAllowedMime(mime: string): boolean {
   return ALLOWED_MIME_TYPES.has(mime);
+}
+
+// Storage keys we mint are always "<2 hex>/<48 hex>". Reject anything else so a
+// tampered key can't reach unexpected objects (S3) or paths (local).
+function assertSafeKey(storageKey: string): void {
+  if (!/^[0-9a-f]{2}\/[0-9a-f]{48}$/.test(storageKey)) {
+    throw new Error('Invalid storage key.');
+  }
 }
 
 /** Resolve a storage key to an absolute path, rejecting any path traversal. */
@@ -101,20 +113,36 @@ export async function saveFile(data: Buffer, mimeType: string): Promise<SavedFil
   // Shard by two-char prefix to avoid huge flat directories; random 32-byte key.
   const id = randomBytes(24).toString('hex');
   const storageKey = path.posix.join(id.slice(0, 2), id);
-  const dest = resolveKey(storageKey);
-  await mkdir(path.dirname(dest), { recursive: true });
   // Encrypt the file bytes at rest; sizeBytes records the original (plaintext) size.
-  await writeFile(dest, encryptBytes(data), { mode: 0o600 });
+  const encrypted = encryptBytes(data);
+
+  if (USE_S3) {
+    await s3Put(storageKey, encrypted);
+  } else {
+    const dest = resolveKey(storageKey);
+    await mkdir(path.dirname(dest), { recursive: true });
+    await writeFile(dest, encrypted, { mode: 0o600 });
+  }
   return { storageKey, sizeBytes: data.byteLength };
 }
 
 export async function readStoredFile(storageKey: string): Promise<Buffer> {
+  if (USE_S3) {
+    // Validate the key shape even for S3 (defence in depth against odd keys).
+    assertSafeKey(storageKey);
+    return decryptBytes(await s3Get(storageKey));
+  }
   return decryptBytes(await readFile(resolveKey(storageKey)));
 }
 
 export async function deleteStoredFile(storageKey: string): Promise<void> {
   try {
-    await unlink(resolveKey(storageKey));
+    if (USE_S3) {
+      assertSafeKey(storageKey);
+      await s3Delete(storageKey);
+    } else {
+      await unlink(resolveKey(storageKey));
+    }
   } catch {
     // Already gone — safe to ignore.
   }

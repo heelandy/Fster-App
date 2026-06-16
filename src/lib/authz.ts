@@ -138,10 +138,19 @@ export async function requireUser() {
   if (!session?.user?.id) throw Errors.unauthorized();
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, email: true, name: true, globalRole: true, adminRole: true, isActive: true, isBanned: true },
+    select: {
+      id: true, email: true, name: true, globalRole: true, adminRole: true,
+      isActive: true, isBanned: true, tokenVersion: true, emailVerifiedAt: true,
+    },
   });
   if (!user || !user.isActive || user.isBanned) throw Errors.unauthorized();
-  return { id: user.id, email: user.email, name: user.name, role: user.globalRole, adminRole: user.adminRole };
+  // Forced logout: a password reset or admin "sign out everywhere" bumps the
+  // user's tokenVersion, instantly invalidating every previously issued JWT.
+  if ((session.user.tokenVersion ?? 0) !== user.tokenVersion) throw Errors.unauthorized();
+  return {
+    id: user.id, email: user.email, name: user.name, role: user.globalRole,
+    adminRole: user.adminRole, emailVerifiedAt: user.emailVerifiedAt,
+  };
 }
 
 /** Effective billing tier — GRACE keeps access, UNPAID/CANCELED drop to FREE. */

@@ -7,6 +7,7 @@ import { RateLimits } from '@/lib/rate-limit';
 import { logAdmin } from '@/lib/audit';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // auth-gated, per-request — never prerender
 
 const patchSchema = z.object({
   key: z.enum(Object.keys(SETTING_DEFAULTS) as [string, ...string[]]),

@@ -6,6 +6,7 @@ import { readJson, mutationGuard } from '@/lib/api';
 import { RateLimits } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // auth-gated, per-request — never prerender
 
 export function GET() {
   return handle(async () => {

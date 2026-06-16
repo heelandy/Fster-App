@@ -7,17 +7,30 @@ interface Member {
   role: string;
   user: { id: string; name: string | null; email: string };
 }
+interface Invite {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  expiresAt: string;
+}
 
 export function MembersClient({ ownerId }: { ownerId: string }) {
   const [members, setMembers] = useState<Member[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function load() {
     setLoading(true);
-    const res = await fetch('/api/household/members');
-    if (res.ok) setMembers(await res.json());
+    const [mRes, iRes] = await Promise.all([
+      fetch('/api/household/members'),
+      fetch('/api/household/invites'),
+    ]);
+    if (mRes.ok) setMembers(await mRes.json());
+    if (iRes.ok) setInvites(await iRes.json());
     setLoading(false);
   }
   useEffect(() => {
@@ -28,8 +41,10 @@ export function MembersClient({ ownerId }: { ownerId: string }) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const fd = new FormData(e.currentTarget);
-    const res = await fetch('/api/household/members', {
+    setNotice(null);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const res = await fetch('/api/household/invites', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: String(fd.get('email')), role: String(fd.get('role')) }),
@@ -37,10 +52,12 @@ export function MembersClient({ ownerId }: { ownerId: string }) {
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d?.error || 'Could not add member.');
+      setError(d?.error || 'Could not send the invitation.');
       return;
     }
-    (e.target as HTMLFormElement).reset();
+    const d = await res.json().catch(() => ({}));
+    setNotice(d?.invited ? 'Invitation emailed. It expires in 7 days.' : 'Member added.');
+    form.reset();
     await load();
   }
 
@@ -50,12 +67,18 @@ export function MembersClient({ ownerId }: { ownerId: string }) {
     if (res.ok) setMembers((p) => p.filter((m) => m.id !== id));
   }
 
+  async function onRevoke(id: string) {
+    if (!confirm('Revoke this pending invitation?')) return;
+    const res = await fetch(`/api/household/invites/${id}`, { method: 'DELETE' });
+    if (res.ok) setInvites((p) => p.filter((i) => i.id !== id));
+  }
+
   return (
     <div>
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Household Members</h1>
       <p className="mb-6 text-sm text-slate-600">
-        Add a co-parent or babysitter. They must create an account first, then you can add them by email.
-        Co-parent and babysitter access require a Pro or Agency plan.
+        Invite a co-parent or babysitter by email. If they don’t have an account yet, they’ll get a link to
+        join. Co-parent and babysitter access require a Pro or Agency plan.
       </p>
 
       <form onSubmit={onAdd} className="card mb-6 grid gap-4 sm:grid-cols-3">
@@ -72,11 +95,31 @@ export function MembersClient({ ownerId }: { ownerId: string }) {
         </div>
         <div className="flex items-end">
           <button type="submit" disabled={busy} className="btn-primary w-full">
-            {busy ? 'Adding…' : 'Add member'}
+            {busy ? 'Sending…' : 'Send invite'}
           </button>
         </div>
         {error && <p className="text-sm text-red-600 sm:col-span-3">{error}</p>}
+        {notice && <p className="text-sm text-green-700 sm:col-span-3">{notice}</p>}
       </form>
+
+      {invites.length > 0 && (
+        <div className="card mb-6">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">Pending invitations</h2>
+          <ul className="divide-y divide-slate-100">
+            {invites.map((i) => (
+              <li key={i.id} className="flex items-center justify-between py-2 text-sm">
+                <div>
+                  <p className="text-slate-800">{i.email}</p>
+                  <p className="text-xs text-slate-500">
+                    {i.role.replaceAll('_', ' ').toLowerCase()} · expires {new Date(i.expiresAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button onClick={() => onRevoke(i.id)} className="text-xs text-red-600 hover:underline">Revoke</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="card p-0">
         {loading ? (

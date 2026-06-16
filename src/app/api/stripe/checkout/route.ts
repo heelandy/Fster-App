@@ -3,8 +3,8 @@ import { requireHousehold, requireCapability } from '@/lib/authz';
 import { handle, json, Errors } from '@/lib/http';
 import { readJson, mutationGuard } from '@/lib/api';
 import { checkoutSchema } from '@/lib/validation';
-import { getStripe, stripeConfigured } from '@/lib/stripe';
-import { PLANS } from '@/lib/plans';
+import { getStripe, isStripeConfigured } from '@/lib/stripe';
+import { getStripePriceId } from '@/lib/config';
 import { env } from '@/lib/env';
 import { RateLimits } from '@/lib/rate-limit';
 
@@ -16,14 +16,13 @@ export function POST(req: Request) {
     requireCapability(ctx, 'billing:manage');
     mutationGuard('checkout', ctx.userId, RateLimits.write);
 
-    if (!stripeConfigured) throw Errors.payment('Billing is not configured on this server.');
+    if (!(await isStripeConfigured())) throw Errors.payment('Billing is not configured on this server.');
 
     const { tier, interval, promoCode } = await readJson(req, checkoutSchema);
-    const plan = PLANS[tier];
-    const priceId = interval === 'ANNUAL' ? plan.stripePriceAnnual : plan.stripePriceMonthly;
+    const priceId = await getStripePriceId(tier, interval ?? 'MONTHLY');
     if (!priceId) throw Errors.payment('That plan is not available for purchase yet.');
 
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const household = await prisma.household.findUnique({
       where: { id: ctx.householdId },
       include: { owner: { select: { email: true } }, subscription: true },
