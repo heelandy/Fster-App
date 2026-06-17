@@ -1,8 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { can, effectiveTier, sanitizeChildForRole, type Capability } from './authz';
+import { can, effectiveTier, bestTier, sanitizeChildForRole, type Capability } from './authz';
 import type { Subscription } from '@prisma/client';
 
 const noPerms = { permissions: {} as Record<string, never> };
+
+describe('bestTier (agency multi-home: owner\'s best plan governs all their homes)', () => {
+  it('picks the highest tier in the set', () => {
+    expect(bestTier(['FREE', 'AGENCY', 'PRO'])).toBe('AGENCY');
+    expect(bestTier(['FREE', 'FAMILY'])).toBe('FAMILY');
+    expect(bestTier(['FREE', 'FREE'])).toBe('FREE');
+    expect(bestTier([])).toBe('FREE');
+  });
+  it('so a FREE sub-home under an AGENCY owner resolves to AGENCY', () => {
+    const agencyMain = effectiveTier({ tier: 'AGENCY', status: 'ACTIVE' });
+    const freeSubHome = effectiveTier({ tier: 'FREE', status: 'ACTIVE' });
+    expect(bestTier([freeSubHome, agencyMain])).toBe('AGENCY');
+  });
+  it('and a cancelled agency plan reverts the homes to FREE', () => {
+    const cancelled = effectiveTier({ tier: 'AGENCY', status: 'CANCELED' });
+    expect(bestTier([effectiveTier({ tier: 'FREE', status: 'ACTIVE' }), cancelled])).toBe('FREE');
+  });
+});
 
 describe('RBAC capability matrix', () => {
   it('foster parent can manage everything', () => {

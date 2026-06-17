@@ -16,6 +16,8 @@ export interface ColumnDef {
   key: string;
   label: string;
   kind?: 'text' | 'date' | 'datetime' | 'money' | 'enum' | 'childName';
+  /** For deadline dates: colour the cell red when overdue, amber when due soon. */
+  proximity?: boolean;
 }
 
 interface Props {
@@ -54,6 +56,34 @@ function formatCell(row: Row, col: ColumnDef): string {
     default:
       return String(v);
   }
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Tailwind text colour for a deadline date: red when overdue (past), amber when
+ * due within 7 days, none otherwise. Date-only values are UTC midnight, so we
+ * compare by calendar day in UTC; datetimes compare by timestamp.
+ */
+function proximityClass(row: Row, col: ColumnDef): string {
+  if (!col.proximity) return '';
+  const v = row[col.key];
+  if (v == null || v === '') return '';
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return '';
+
+  let diffMs: number;
+  if (col.kind === 'date') {
+    const now = new Date();
+    const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const dueUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    diffMs = dueUTC - todayUTC;
+  } else {
+    diffMs = d.getTime() - Date.now();
+  }
+  if (diffMs < 0) return 'text-red-600 font-semibold';
+  if (diffMs <= 7 * DAY_MS) return 'text-amber-600 font-semibold';
+  return '';
 }
 
 export function CrudResource({ title, endpoint, fields, columns, canWrite, emptyText, fixedChildId, rowLinkBase }: Props) {
@@ -213,9 +243,12 @@ export function CrudResource({ title, endpoint, fields, columns, canWrite, empty
             <tbody>
               {items.map((row) => (
                 <tr key={String(row.id)} className="border-b border-slate-100 last:border-0">
-                  {tableColumns.map((c) => (
-                    <td key={c.key} className="px-4 py-3 text-slate-700">{formatCell(row, c)}</td>
-                  ))}
+                  {tableColumns.map((c) => {
+                    const proximity = proximityClass(row, c);
+                    return (
+                      <td key={c.key} className={`px-4 py-3 ${proximity || 'text-slate-700'}`}>{formatCell(row, c)}</td>
+                    );
+                  })}
                   {(canWrite || rowLinkBase) && (
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-3">

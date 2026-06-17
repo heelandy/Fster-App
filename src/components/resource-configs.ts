@@ -22,7 +22,7 @@ export const appointmentFields: FieldDef[] = [
   { name: 'notes', label: 'Notes', type: 'textarea' },
 ];
 export const appointmentColumns: ColumnDef[] = [
-  { key: 'startsAt', label: 'When', kind: 'datetime' },
+  { key: 'startsAt', label: 'When', kind: 'datetime', proximity: true },
   { key: 'title', label: 'Title' },
   { key: 'type', label: 'Type', kind: 'enum' },
   { key: 'child', label: 'Child', kind: 'childName' },

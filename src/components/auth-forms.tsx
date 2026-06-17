@@ -11,7 +11,6 @@ export function LoginForm() {
   const callbackUrl = params.get('callbackUrl') || '/dashboard';
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showTotp, setShowTotp] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -26,10 +25,7 @@ export function LoginForm() {
     });
     setLoading(false);
     if (res?.error) {
-      // Either the password was wrong, or a required 2FA code was missing/invalid.
-      // Reveal the code field so a 2FA user can complete sign-in.
-      setShowTotp(true);
-      setError('Invalid email, password, or authenticator code.');
+      setError('Sign-in failed. Check your email and password — and if two-factor is enabled, enter your 6-digit authenticator code below.');
       return;
     }
     router.push(callbackUrl);
@@ -46,14 +42,16 @@ export function LoginForm() {
         <label className="label" htmlFor="password">Password</label>
         <input id="password" name="password" type="password" autoComplete="current-password" required className="input" />
       </div>
-      <div className={showTotp ? '' : 'hidden'}>
-        <label className="label" htmlFor="totp">Authenticator code</label>
+      <div>
+        <label className="label" htmlFor="totp">
+          Authenticator code <span className="font-normal text-slate-400">(only if you’ve enabled 2FA)</span>
+        </label>
         <input
           id="totp"
           name="totp"
           inputMode="numeric"
           autoComplete="one-time-code"
-          placeholder="6-digit code (only if 2FA is on)"
+          placeholder="6-digit code"
           className="input"
         />
       </div>

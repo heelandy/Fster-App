@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireHousehold, requireUser, can } from '@/lib/authz';
+import { prisma } from '@/lib/prisma';
 import { planHasFeature } from '@/lib/plans';
 import { isFlagOn } from '@/lib/settings';
 import { DashboardNav, type NavItem } from '@/components/dashboard-nav';
 import { MobileNav } from '@/components/mobile-nav';
+import { HomeSwitcher } from '@/components/home-switcher';
 import { SignOutButton } from '@/components/sign-out-button';
 import { VerifyEmailNeeded } from '@/components/resend-verification';
 
@@ -84,11 +86,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (can(ctx, 'routines:read')) items.push({ href: '/dashboard/checklists', label: 'Checklists', icon: '✅' });
   if (can(ctx, 'licensing:read') && planHasFeature(ctx.tier, 'licensingTracker'))
     items.push({ href: '/dashboard/licensing', label: 'Licensing', icon: '🛡️' });
+  if (can(ctx, 'household:manage') && planHasFeature(ctx.tier, 'agencyDashboard'))
+    items.push({ href: '/dashboard/agency', label: 'Agency', icon: '🏢' });
   if (can(ctx, 'members:manage')) items.push({ href: '/dashboard/household', label: 'Household', icon: '🏠' });
   if (can(ctx, 'billing:manage')) items.push({ href: '/billing', label: 'Billing', icon: '💳' });
   items.push({ href: '/support', label: 'Support', icon: '💬' });
   items.push({ href: '/account', label: 'Account', icon: '👤' });
   if (ctx.globalRole === 'ADMIN') items.push({ href: '/admin', label: 'Admin', icon: '⚙️' });
+
+  // Homes this user belongs to — powers the multi-home switcher.
+  const homeRows = await prisma.householdMember.findMany({
+    where: { userId: ctx.userId },
+    select: { household: { select: { id: true, name: true } } },
+    orderBy: { invitedAt: 'asc' },
+  });
+  const homes = homeRows.map((h) => ({ id: h.household.id, name: h.household.name, current: h.household.id === ctx.householdId }));
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -99,6 +111,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <p className="mt-1 truncate text-xs text-slate-500" title={ctx.householdName}>
               {ctx.householdName}
             </p>
+            <HomeSwitcher homes={homes} />
             <span className="badge mt-2 bg-brand-100 text-brand-800">{ctx.tier} plan</span>
             <p className="mt-1 text-xs text-slate-400">Role: {ctx.role.replaceAll('_', ' ').toLowerCase()}</p>
           </div>

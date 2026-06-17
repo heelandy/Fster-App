@@ -1,12 +1,23 @@
 import { requireHousehold, can } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
 import { PLANS } from '@/lib/plans';
+import { reconcileFromStripe } from '@/lib/billing-sync';
 import { BillingClient } from '@/components/billing-client';
 import { AccessDenied } from '@/components/feature-locked';
 
-export default async function BillingPage() {
-  const ctx = await requireHousehold();
+export default async function BillingPage({ searchParams }: { searchParams: { status?: string } }) {
+  let ctx = await requireHousehold();
   if (!can(ctx, 'billing:manage')) return <AccessDenied />;
+
+  const justPaid = searchParams?.status === 'success';
+  const cancelled = searchParams?.status === 'cancelled';
+
+  // Returning from checkout — pull the latest subscription straight from Stripe so
+  // the upgrade applies even without a webhook, then re-read the context.
+  if (justPaid) {
+    try { await reconcileFromStripe(ctx.householdId); } catch { /* poll/webhook will catch up */ }
+    ctx = await requireHousehold();
+  }
 
   const household = await prisma.household.findUnique({
     where: { id: ctx.householdId },
@@ -41,6 +52,18 @@ export default async function BillingPage() {
 
   return (
     <div>
+      {justPaid && (
+        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          ✅ Payment received — thank you! Your plan updates here within a few seconds (refresh if needed).
+          You can safely <strong>close this tab</strong> and return to the app.{' '}
+          <a href="/dashboard" className="font-medium underline">Go to dashboard</a>
+        </div>
+      )}
+      {cancelled && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Checkout cancelled — no charge was made. You can choose a plan again whenever you’re ready.
+        </div>
+      )}
       <BillingClient
         currentTier={ctx.tier}
         status={sub?.status ?? 'ACTIVE'}

@@ -610,3 +610,328 @@ Pre-launch owner items in DEPLOYMENT.md (managed Postgres + backups, TLS, cron,
 live Stripe/Resend/Redis/monitoring, counsel review of /privacy + /terms,
 remove demo accounts after the UI check).
 ==================================================================
+
+
+
+
+
+
+========================================================
+WEB APPLICATION BILLING CHALLENGES
+MASTER LIST
+========================================================
+
+1. FREE PLAN MANAGEMENT
+- Free tier abuse
+- Multiple account creation
+- Resource limits
+- Feature restrictions
+- Trial expiration
+- User conversion tracking
+
+2. SUBSCRIPTION MANAGEMENT
+- Monthly subscriptions
+- Annual subscriptions
+- Multi-year subscriptions
+- Lifetime plans
+- Recurring billing
+- Subscription renewals
+- Subscription expiration
+- Subscription upgrades
+- Subscription downgrades
+- Subscription pauses
+- Subscription reactivation
+- Subscription cancellation
+
+3. PAYMENT PROCESSING
+- Credit cards
+- Debit cards
+- Bank accounts
+- ACH transfers
+- Wire transfers
+- PayPal
+- Apple Pay
+- Google Pay
+- International payments
+- Failed transactions
+- Payment retries
+- Payment verification
+
+4. FAILED PAYMENT HANDLING
+- Expired cards
+- Insufficient funds
+- Bank declines
+- Fraud declines
+- Payment processor errors
+- Retry schedules
+- Grace periods
+- Account suspension after failure
+
+5. PLAN CHANGES
+- Mid-cycle upgrades
+- Mid-cycle downgrades
+- Immediate upgrades
+- Delayed downgrades
+- Proration calculations
+- Feature entitlement updates
+- Billing cycle adjustments
+
+6. PRORATION
+- Upgrade mid-month
+- Downgrade mid-month
+- Seat additions
+- Seat removals
+- Usage changes
+- Partial refunds
+- Billing corrections
+
+7. USAGE-BASED BILLING
+- API calls
+- Storage consumption
+- Bandwidth usage
+- Compute hours
+- AI token usage
+- Database usage
+- User seats
+- Message volume
+- Email volume
+- SMS volume
+
+8. METERING CHALLENGES
+- Real-time usage tracking
+- Delayed reporting
+- Duplicate events
+- Missing events
+- Billing accuracy
+- Usage reconciliation
+- Usage disputes
+
+9. SEAT-BASED BILLING
+- Team members
+- Employee seats
+- Agency seats
+- Contractor seats
+- Shared accounts
+- Seat allocation
+- Seat reassignment
+
+10. INVOICING
+- Invoice generation
+- Invoice numbering
+- Invoice storage
+- Invoice delivery
+- PDF invoices
+- Tax invoices
+- Credit notes
+- Invoice corrections
+
+11. TAX MANAGEMENT
+- Sales tax
+- VAT
+- GST
+- International tax laws
+- Tax exemptions
+- Tax calculations
+- Tax reporting
+- Tax compliance
+
+12. REFUNDS
+- Full refunds
+- Partial refunds
+- Automatic refunds
+- Manual refunds
+- Refund disputes
+- Refund abuse
+- Refund approvals
+
+13. CHARGEBACKS
+- Fraud claims
+- Customer disputes
+- Unauthorized purchases
+- Evidence submission
+- Chargeback fees
+- Chargeback tracking
+- Revenue loss
+
+14. DISPUTE MANAGEMENT
+- Billing complaints
+- Duplicate charges
+- Wrong plan charges
+- Refund disagreements
+- Contract disputes
+
+15. DISCOUNTS
+- Promo codes
+- Coupons
+- Referral discounts
+- Seasonal discounts
+- Volume discounts
+- Stackable discounts
+- Expiring discounts
+
+16. TRIAL MANAGEMENT
+- Free trials
+- Trial extensions
+- Trial abuse
+- Trial conversion
+- Credit card required trials
+- No-card trials
+
+17. ENTERPRISE BILLING
+- Custom pricing
+- Custom contracts
+- Annual invoicing
+- Multi-year agreements
+- Procurement processes
+- Purchase orders
+- Net payment terms
+
+18. MULTI-CURRENCY SUPPORT
+- Currency conversion
+- Exchange rates
+- Currency rounding
+- Regional pricing
+- International reconciliation
+
+19. FRAUD PREVENTION
+- Stolen cards
+- Fake identities
+- Trial abuse
+- Chargeback abuse
+- Account farming
+- Payment laundering
+
+20. ACCOUNT STATUS MANAGEMENT
+- Active
+- Trial
+- Past due
+- Suspended
+- Canceled
+- Expired
+- Pending payment
+
+21. FEATURE ENTITLEMENT
+- Plan feature mapping
+- Feature unlocking
+- Feature locking
+- Dynamic permissions
+- Access synchronization
+
+22. BILLING NOTIFICATIONS
+- Payment success
+- Payment failed
+- Subscription renewal
+- Trial ending
+- Invoice generated
+- Refund issued
+- Chargeback received
+
+23. BILLING AUDIT LOGS
+- Subscription changes
+- Refund history
+- Payment history
+- Admin actions
+- Tax changes
+- Pricing changes
+
+24. REVENUE REPORTING
+- Monthly recurring revenue (MRR)
+- Annual recurring revenue (ARR)
+- Churn
+- Lifetime value (LTV)
+- Average revenue per user (ARPU)
+- Net revenue retention
+
+25. CUSTOMER SELF-SERVICE
+- Update card
+- Download invoices
+- Change plan
+- Cancel subscription
+- Reactivate subscription
+- View billing history
+
+26. DATA SYNCHRONIZATION
+- Stripe webhook failures
+- Duplicate webhooks
+- Missing webhooks
+- Delayed webhooks
+- Sync conflicts
+- Retry processing
+
+27. SECURITY
+- PCI compliance
+- Encryption
+- Payment tokenization
+- Secret key protection
+- Webhook verification
+- Access control
+
+28. ADMIN BILLING TOOLS
+- Manual credits
+- Manual invoices
+- Refund approval
+- Subscription override
+- Account adjustments
+- Billing notes
+
+29. ACCOUNTING INTEGRATION
+- QuickBooks integration
+- Xero integration
+- ERP integration
+- Revenue recognition
+- Tax reporting
+
+30. SCALING CHALLENGES
+- Millions of invoices
+- High transaction volume
+- Global tax rules
+- Multi-region payments
+- Large enterprise contracts
+
+========================================================
+FOSTER CARE HMS SPECIFIC BILLING CHALLENGES
+========================================================
+
+- Individual foster parent plans
+- Family plans
+- Agency plans
+- State agency contracts
+- Per-child pricing
+- Per-user pricing
+- Staff seat billing
+- Document storage billing
+- SMS reminder billing
+- Background check fees
+- Training course fees
+- Licensing fees
+- Annual renewals
+- Grant-funded accounts
+- Scholarship accounts
+- Government-funded accounts
+- Agency-managed billing
+- Parent-managed billing
+- Organization invoicing
+- Custom contract pricing
+- Multi-location billing
+
+========================================================
+MOST CRITICAL BILLING MODULES TO BUILD FIRST
+========================================================
+
+1. Plans
+2. Subscriptions
+3. Stripe Checkout
+4. Webhooks
+5. Billing History
+6. Invoice Download
+7. Payment Failure Recovery
+8. Subscription Upgrades
+9. Refund System
+10. Admin Billing Dashboard
+11. Audit Logs
+12. Revenue Analytics
+13. Tax Handling
+14. Coupon System
+15. Customer Self-Service Portal
+
+These 15 modules cover roughly 90% of the billing functionality needed by modern SaaS web applications.

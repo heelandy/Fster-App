@@ -43,6 +43,9 @@ A secure, private, mobile-friendly web application for foster parents to manage 
 | [docs/ADMIN.md](./docs/ADMIN.md) | Admin console + the full spec-to-implementation map for all 25 admin sections. |
 | [docs/USER_GUIDE.md](./docs/USER_GUIDE.md) | Roles, plans, and a step-by-step exploration walkthrough (incl. babysitter mode). |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Go‑live runbook: hosting model, secrets, DB backups, TLS, Stripe/email, storage, cron, monitoring, legal. |
+| [docs/STRIPE_SETUP.md](./docs/STRIPE_SETUP.md) | Step‑by‑step Stripe setup: where keys go (env vs Integrations UI), prices, webhook, test cards, Payment Links, go‑live. |
+| [docs/EMAIL_SETUP.md](./docs/EMAIL_SETUP.md) | Step‑by‑step email (Resend) setup: API key, verified domain, the "Send test email" check, reminders cron, go‑live. |
+| [docs/GO_LIVE.md](./docs/GO_LIVE.md) | Go‑live checklist: secrets, DB backups, live Stripe + Customer Portal, email, storage, demo‑account removal, legal. |
 | [SECURITY_AUDIT_REPORT.md](./SECURITY_AUDIT_REPORT.md) | Cybersecurity audit, OWASP checklist, and post-review remediation. |
 
 ## 🧱 Tech stack

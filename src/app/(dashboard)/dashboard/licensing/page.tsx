@@ -17,7 +17,7 @@ const columns: ColumnDef[] = [
   { key: 'name', label: 'Requirement' },
   { key: 'category', label: 'Category' },
   { key: 'status', label: 'Status', kind: 'enum' },
-  { key: 'dueDate', label: 'Due', kind: 'date' },
+  { key: 'dueDate', label: 'Due', kind: 'date', proximity: true },
 ];
 
 export default async function LicensingPage() {

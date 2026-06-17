@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import type { HouseholdRole, PlanTier, Subscription } from '@prisma/client';
+import type { HouseholdRole, PlanTier, Subscription, Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { auth } from './auth';
 import { Errors } from './http';
@@ -176,7 +176,7 @@ export async function requireUser() {
 }
 
 /** Effective billing tier — GRACE keeps access, UNPAID/CANCELED drop to FREE. */
-export function effectiveTier(sub: Subscription | null): PlanTier {
+export function effectiveTier(sub: Pick<Subscription, 'status' | 'tier'> | null): PlanTier {
   if (!sub) return 'FREE';
   switch (sub.status) {
     case 'ACTIVE':
@@ -192,6 +192,13 @@ export function effectiveTier(sub: Subscription | null): PlanTier {
   }
 }
 
+const TIER_RANK: Record<PlanTier, number> = { FREE: 0, FAMILY: 1, PRO: 2, AGENCY: 3 };
+
+/** Highest tier among a set (used for agency multi-home: the owner's best plan). */
+export function bestTier(tiers: PlanTier[]): PlanTier {
+  return tiers.reduce<PlanTier>((best, t) => (TIER_RANK[t] > TIER_RANK[best] ? t : best), 'FREE');
+}
+
 /**
  * Resolve the user's active household context. Uses the `fc_household` cookie if
  * it points at a household the user belongs to, otherwise the first membership.
@@ -201,23 +208,50 @@ export async function requireHousehold(explicitId?: string): Promise<HouseholdCo
   const cookieId = cookies().get(ACTIVE_HOUSEHOLD_COOKIE)?.value;
   const wantedId = explicitId ?? cookieId ?? undefined;
 
-  const membership = await prisma.householdMember.findFirst({
-    where: {
-      userId: user.id,
-      ...(wantedId ? { householdId: wantedId } : {}),
+  // The home OWNER's plan governs all their homes: an AGENCY plan on any one home
+  // grants agency features to every home they own (and cancelling cleanly reverts
+  // them). So we resolve the tier from the owner's best active subscription, not
+  // just this home's own subscription.
+  const include = {
+    household: {
+      include: {
+        subscription: true,
+        owner: {
+          select: {
+            ownedHouseholds: { select: { subscription: { select: { tier: true, status: true } } } },
+          },
+        },
+      },
     },
-    include: { household: { include: { subscription: true } } },
+  } satisfies Prisma.HouseholdMemberInclude;
+
+  let membership = await prisma.householdMember.findFirst({
+    where: { userId: user.id, ...(wantedId ? { householdId: wantedId } : {}) },
+    include,
     orderBy: { invitedAt: 'asc' },
   });
 
+  // A stale `fc_household` cookie can point at a household this user doesn't belong
+  // to — e.g. left over after signing out and signing back in as a DIFFERENT user
+  // on the same browser. Treat the cookie as a hint: if it doesn't resolve, fall
+  // back to the user's first home. An EXPLICIT id (an API asking for a specific
+  // household) must still 403 — that's IDOR protection, not a stale hint.
+  if (!membership && !explicitId && cookieId) {
+    membership = await prisma.householdMember.findFirst({
+      where: { userId: user.id },
+      include,
+      orderBy: { invitedAt: 'asc' },
+    });
+  }
+
   if (!membership) {
-    // If an explicit/cookie household was requested but the user isn't a member,
-    // this is an access-control failure, not "no household".
-    if (wantedId) throw Errors.forbidden();
+    if (explicitId) throw Errors.forbidden();
     throw Errors.notFound();
   }
 
   const sub = membership.household.subscription;
+  const ownerHomeSubs = membership.household.owner?.ownedHouseholds.map((h) => h.subscription) ?? [];
+  const tier = bestTier([sub, ...ownerHomeSubs].map(effectiveTier));
   return {
     userId: user.id,
     globalRole: user.role,
@@ -225,7 +259,7 @@ export async function requireHousehold(explicitId?: string): Promise<HouseholdCo
     householdName: membership.household.name,
     role: membership.role,
     permissions: (membership.permissions as GranularPermissions) ?? {},
-    tier: effectiveTier(sub),
+    tier,
     subscription: sub,
   };
 }

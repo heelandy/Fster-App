@@ -1,7 +1,9 @@
 import type Stripe from 'stripe';
-import type { PlanTier, SubscriptionStatus } from '@prisma/client';
+import type { PlanTier, SubscriptionStatus, BillingInterval } from '@prisma/client';
 import { prisma } from './prisma';
 import { PLANS } from './plans';
+import { getStripe, isStripeConfigured } from './stripe';
+import { getStripePriceId } from './config';
 
 const GRACE_DAYS = 7;
 
@@ -145,4 +147,85 @@ export async function recordInvoice(invoice: Stripe.Invoice, paid: boolean) {
       data: { graceUntil: null },
     });
   }
+}
+
+/** Resolve a plan tier from a Stripe price id, checking env PLANS then DB config. */
+async function tierFromPriceId(priceId: string): Promise<PlanTier | null> {
+  for (const plan of Object.values(PLANS)) {
+    if (priceId === plan.stripePriceMonthly || priceId === plan.stripePriceAnnual) return plan.tier;
+  }
+  const tiers: PlanTier[] = ['FAMILY', 'PRO', 'AGENCY'];
+  const intervals: BillingInterval[] = ['MONTHLY', 'ANNUAL'];
+  for (const t of tiers) {
+    for (const i of intervals) {
+      if ((await getStripePriceId(t, i)) === priceId) return t;
+    }
+  }
+  return null;
+}
+
+/**
+ * Pull the household's current subscription state directly from Stripe and sync it,
+ * WITHOUT relying on a webhook. Used on the post-checkout return and a manual
+ * "refresh" — so a plan upgrade applies even if webhooks aren't configured (local
+ * dev) or an event was missed. Resolves the Stripe customer by the stored id, or
+ * (for Payment-Link purchases that never created one locally) by the owner's email.
+ */
+export async function reconcileFromStripe(householdId: string): Promise<void> {
+  if (!(await isStripeConfigured())) return;
+  const household = await prisma.household.findUnique({
+    where: { id: householdId },
+    select: { id: true, stripeCustomerId: true, owner: { select: { email: true } } },
+  });
+  if (!household) return;
+
+  const stripe = await getStripe();
+
+  // Gather candidate customers: the one we already stored PLUS every Stripe
+  // customer with the owner's email. Payment Links create a fresh customer per
+  // purchase, so the active subscription often lives on a different customer than
+  // the one on file — we must look across all of them.
+  const customerIds = new Set<string>();
+  if (household.stripeCustomerId) customerIds.add(household.stripeCustomerId);
+  if (household.owner?.email) {
+    const matches = await stripe.customers.list({ email: household.owner.email, limit: 20 });
+    for (const c of matches.data) customerIds.add(c.id);
+  }
+  if (customerIds.size === 0) return;
+
+  const allSubs: Stripe.Subscription[] = [];
+  for (const cid of customerIds) {
+    const list = await stripe.subscriptions.list({ customer: cid, status: 'all', limit: 10 });
+    allSubs.push(...list.data);
+  }
+  if (allSubs.length === 0) return;
+
+  // Most recent entitling subscription wins (active/trialing/past_due), else the
+  // most recent of any status.
+  const ranked = allSubs.sort((a, b) => b.created - a.created);
+  const sub = ranked.find((s) => ['active', 'trialing', 'past_due'].includes(s.status)) ?? ranked[0];
+  const subCustomerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+
+  // Point the household at the customer that actually holds the subscription (so
+  // "Manage billing" and future reconciles use the right one).
+  if (household.stripeCustomerId !== subCustomerId) {
+    try {
+      await prisma.household.update({ where: { id: household.id }, data: { stripeCustomerId: subCustomerId } });
+    } catch {
+      /* unique-constraint race / already linked elsewhere — metadata below still attributes it */
+    }
+  }
+
+  // Payment-Link subscriptions carry no householdId/tier metadata — stamp them so
+  // this and future events attribute correctly (syncSubscription reads metadata).
+  if (!sub.metadata?.householdId || !sub.metadata?.tier) {
+    const priceId = sub.items.data[0]?.price.id;
+    const tier = priceId ? await tierFromPriceId(priceId) : null;
+    const updated = await stripe.subscriptions.update(sub.id, {
+      metadata: { ...sub.metadata, householdId, ...(tier ? { tier } : {}) },
+    });
+    sub.metadata = updated.metadata;
+  }
+
+  await syncSubscription(sub);
 }

@@ -54,6 +54,24 @@ export async function POST(req: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription as string);
+          // Payment Link path: the subscription has no householdId metadata (we
+          // didn't create it via the Checkout API). Attribute it from the link's
+          // client_reference_id = "<householdId>__<tier>": map the customer to the
+          // household and stamp metadata so later subscription.* events resolve too.
+          const ref = session.client_reference_id;
+          if (ref && ref.includes('__') && !sub.metadata?.householdId) {
+            const [householdId, tier] = ref.split('__');
+            const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+            try {
+              await prisma.household.update({ where: { id: householdId }, data: { stripeCustomerId: customerId } });
+              const updated = await stripe.subscriptions.update(sub.id, {
+                metadata: { ...sub.metadata, householdId, tier },
+              });
+              sub.metadata = updated.metadata;
+            } catch (e) {
+              console.error('[stripe webhook] payment-link attribution failed:', e);
+            }
+          }
           await syncSubscription(sub);
         }
         break;

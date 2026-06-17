@@ -248,6 +248,17 @@ export const integrationConfigSchema = z.object({
       }),
     )
     .optional(),
+  // Optional Stripe Payment Link URLs per plan (https://buy.stripe.com/…). Empty
+  // string clears the link (reverting that plan to the Checkout Session flow).
+  paymentLinks: z
+    .record(
+      z.enum(['FAMILY', 'PRO', 'AGENCY']),
+      z.object({
+        MONTHLY: z.string().trim().max(500).optional(),
+        ANNUAL: z.string().trim().max(500).optional(),
+      }),
+    )
+    .optional(),
 });
 
 // ── Email-based household invites ──

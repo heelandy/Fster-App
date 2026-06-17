@@ -1,7 +1,31 @@
-import { PrismaClient, type PlanTier } from '@prisma/client';
+import { PrismaClient, Prisma, type PlanTier } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+/**
+ * Restore a demo account to a known-good, loginable state. Re-seeding must be able
+ * to recover an account that got locked, 2FA-enrolled, soft-deleted or had its
+ * password changed during testing — otherwise a wedged demo login can't be fixed.
+ */
+async function resetDemoAuth(email: string, password: string) {
+  await prisma.user.update({
+    where: { email },
+    data: {
+      passwordHash: await bcrypt.hash(password, 12),
+      isActive: true,
+      isBanned: false,
+      deletedAt: null,
+      failedLogins: 0,
+      lockedUntil: null,
+      tokenVersion: { increment: 1 }, // invalidate any lingering sessions
+      twoFactorEnabledAt: null,
+      twoFactorSecret: null,
+      twoFactorBackupCodes: Prisma.DbNull,
+      emailVerifiedAt: new Date(),
+    },
+  });
+}
 
 const PLAN_SEED: {
   tier: PlanTier;
@@ -49,7 +73,7 @@ async function main() {
   const adminEmail = 'admin@example.com';
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { globalRole: 'ADMIN', adminRole: 'SUPER_ADMIN', emailVerifiedAt: new Date() },
+    update: { globalRole: 'ADMIN', adminRole: 'SUPER_ADMIN' },
     create: {
       email: adminEmail,
       name: 'System Admin',
@@ -59,6 +83,9 @@ async function main() {
       emailVerifiedAt: new Date(),
     },
   });
+  // Always restore a clean, loginable state (password, unlock, clear 2FA) so a
+  // re-seed reliably recovers the admin even after testing.
+  await resetDemoAuth(adminEmail, 'Admin12345');
   const adminHasHousehold = await prisma.householdMember.findFirst({ where: { userId: admin.id } });
   if (!adminHasHousehold) {
     const adminHome = await prisma.household.create({ data: { name: 'Admin Home', ownerId: admin.id } });
@@ -121,7 +148,45 @@ async function main() {
     });
     console.log(`✓ Demo foster parent seeded (${parentEmail} / Parent12345)`);
   } else {
-    console.log('• Demo foster parent already exists, skipping');
+    await resetDemoAuth(parentEmail, 'Parent12345');
+    console.log('• Demo foster parent exists — auth reset (Parent12345)');
+  }
+
+  // 4) Demo AGENCY account: one owner managing multiple foster homes, so the
+  //    Agency dashboard + multi-home switcher can be exercised end-to-end.
+  const agencyEmail = 'agency@example.com';
+  const agencyExists = await prisma.user.findUnique({ where: { email: agencyEmail } });
+  if (!agencyExists) {
+    const agency = await prisma.user.create({
+      data: {
+        email: agencyEmail,
+        name: 'Demo Agency',
+        passwordHash: await bcrypt.hash('Agency12345', 12),
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    // Home 1 — holds the paid AGENCY subscription, which (via the owner) governs
+    // every home this agency owns.
+    const north = await prisma.household.create({ data: { name: 'Northside Foster Home', ownerId: agency.id } });
+    await prisma.householdMember.create({ data: { householdId: north.id, userId: agency.id, role: 'FOSTER_PARENT', acceptedAt: new Date() } });
+    await prisma.subscription.create({ data: { householdId: north.id, tier: 'AGENCY', status: 'ACTIVE' } });
+    await prisma.childProfile.create({ data: { householdId: north.id, firstName: 'Maria', placementStatus: 'ACTIVE' } });
+    await prisma.appointment.create({ data: { householdId: north.id, title: 'Court hearing', type: 'COURT', startsAt: new Date(Date.now() + 2 * 86_400_000) } });
+    await prisma.licensingRequirement.create({ data: { householdId: north.id, name: 'CPR/First Aid renewal', status: 'DUE_SOON', dueDate: new Date(Date.now() + 5 * 86_400_000) } });
+
+    // Home 2 — its own FREE subscription; inherits AGENCY features via the owner.
+    const west = await prisma.household.create({ data: { name: 'Westside Foster Home', ownerId: agency.id } });
+    await prisma.householdMember.create({ data: { householdId: west.id, userId: agency.id, role: 'FOSTER_PARENT', acceptedAt: new Date() } });
+    await prisma.subscription.create({ data: { householdId: west.id, tier: 'FREE', status: 'ACTIVE' } });
+    await prisma.childProfile.create({ data: { householdId: west.id, firstName: 'Jordan', placementStatus: 'ACTIVE' } });
+    await prisma.appointment.create({ data: { householdId: west.id, title: 'Home inspection', type: 'HOME_INSPECTION', startsAt: new Date(Date.now() - 1 * 86_400_000) } });
+    await prisma.licensingRequirement.create({ data: { householdId: west.id, name: 'Fire inspection', status: 'EXPIRED', dueDate: new Date(Date.now() - 10 * 86_400_000) } });
+
+    console.log(`✓ Demo agency seeded (${agencyEmail} / Agency12345) — 2 homes`);
+  } else {
+    await resetDemoAuth(agencyEmail, 'Agency12345');
+    console.log('• Demo agency exists — auth reset (Agency12345)');
   }
 }
 

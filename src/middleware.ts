@@ -82,6 +82,11 @@ export async function middleware(req: NextRequest) {
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set('content-security-policy', csp);
+  // Clear any leftover active-home cookie on the auth pages so a fresh sign-in
+  // never inherits the previous user's selected household on a shared browser.
+  if (pathname === '/login' || pathname === '/register') {
+    res.cookies.delete('fc_household');
+  }
   return res;
 }
 

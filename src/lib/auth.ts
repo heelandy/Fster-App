@@ -144,9 +144,18 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Password correct — enforce the second factor when 2FA is enabled. A wrong
-        // code counts toward the same lockout so the factor can't be brute-forced.
+        // Password correct — enforce the second factor when 2FA is enabled.
         if (user.twoFactorEnabledAt) {
+          const provided = Boolean(totp?.trim() || backupCode?.trim());
+          if (!provided) {
+            // No code supplied yet — prompt for it. This is NOT a failed attempt:
+            // simply not having typed the code (the field may not even have been
+            // shown on the first submit) must never count toward the lockout.
+            await logSecurity({ actorId: user.id, event: 'TWO_FACTOR_REQUIRED', metadata: { email } });
+            return null;
+          }
+          // A code WAS provided but is wrong — that counts toward the lockout so the
+          // second factor can't be brute-forced.
           const ok = await secondFactorOk(user, totp, backupCode);
           if (!ok) {
             await registerFailedLogin(user, email, 'TWO_FACTOR_FAILED');

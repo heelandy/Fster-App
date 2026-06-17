@@ -22,6 +22,7 @@ export interface EmailMessage {
 export interface SendResult {
   ok: boolean;
   provider: 'resend' | 'log';
+  error?: string; // human-readable reason when ok === false (e.g. Resend's message)
 }
 
 function stripHtml(html: string): string {
@@ -87,13 +88,20 @@ async function deliver(msg: EmailMessage): Promise<SendResult> {
       }),
     });
     if (!res.ok) {
-      console.error('[email] provider returned', res.status, await res.text().catch(() => ''));
-      return { ok: false, provider: 'resend' };
+      const body = await res.text().catch(() => '');
+      console.error('[email] provider returned', res.status, body);
+      // Resend errors are JSON like {"message":"…","name":"validation_error"}.
+      let reason = `Resend returned ${res.status}`;
+      try {
+        const j = JSON.parse(body) as { message?: string; error?: string };
+        if (j.message || j.error) reason = j.message || j.error!;
+      } catch { /* non-JSON body */ }
+      return { ok: false, provider: 'resend', error: reason };
     }
     return { ok: true, provider: 'resend' };
   } catch (err) {
     console.error('[email] send failed:', err);
-    return { ok: false, provider: 'resend' };
+    return { ok: false, provider: 'resend', error: 'Network error reaching Resend.' };
   }
 }
 

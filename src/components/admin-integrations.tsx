@@ -8,6 +8,7 @@ interface Status {
     publishableKey: string;
     webhookSecretSet: boolean; webhookSecretSource: string; webhookEndpointId: string;
     prices: Record<string, string>;
+    paymentLinks: Record<string, string>;
   };
   email: { apiKeySet: boolean; apiKeyMasked: string; apiKeySource: string; from: string };
 }
@@ -29,6 +30,7 @@ export function AdminIntegrations() {
   const [forbidden, setForbidden] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [testTo, setTestTo] = useState('');
 
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/integrations');
@@ -62,14 +64,16 @@ export function AdminIntegrations() {
       if (v) body[k] = v;
     }
     // Non-secret: always send the (editable) current value.
-    body.stripePublishableKey = String(fd.get('stripePublishableKey') ?? '');
     body.emailFrom = String(fd.get('emailFrom') ?? '');
     const prices: Record<string, Record<string, string>> = {};
+    const paymentLinks: Record<string, Record<string, string>> = {};
     for (const key of PRICE_KEYS) {
       const [tier, interval] = key.split('.');
       (prices[tier] ??= {})[interval] = String(fd.get(`price.${key}`) ?? '');
+      (paymentLinks[tier] ??= {})[interval] = String(fd.get(`link.${key}`) ?? '');
     }
     body.prices = prices;
+    body.paymentLinks = paymentLinks;
 
     const res = await fetch('/api/admin/integrations', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -90,6 +94,27 @@ export function AdminIntegrations() {
     setBusy(false);
     const d = await res.json().catch(() => ({}));
     if (res.ok) { setResp((p) => (p ? { ...p, status: d.status } : p)); setMsg({ kind: 'ok', text: 'Cleared.' }); }
+  }
+
+  async function sendTestEmail() {
+    setBusy(true); setMsg(null);
+    const to = testTo.trim();
+    const res = await fetch('/api/admin/integrations/email/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Always send a valid JSON body; omit `to` when blank (route defaults to the admin's email).
+      body: JSON.stringify(to ? { to } : {}),
+    });
+    setBusy(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { setMsg({ kind: 'err', text: d?.error || 'Could not send the test email.' }); return; }
+    if (d.provider === 'log') {
+      setMsg({ kind: 'err', text: 'No Resend API key is set — the message was only written to the server log (dev mode). Save a key above, then test again.' });
+    } else if (d.ok) {
+      setMsg({ kind: 'ok', text: `Test email sent to ${d.to}. Check your inbox (and spam).` });
+    } else {
+      setMsg({ kind: 'err', text: `Resend rejected it: ${d.error || 'unknown reason'}. Tip: the default From (onboarding@resend.dev) only delivers to your own Resend-account email — set the recipient to that address, or verify your own domain in Resend.` });
+    }
   }
 
   async function createWebhook() {
@@ -172,11 +197,6 @@ export function AdminIntegrations() {
           </div>
 
           <div>
-            <label className="label">Publishable key</label>
-            <input name="stripePublishableKey" defaultValue={s.stripe.publishableKey} placeholder="pk_live_…" className="input" />
-          </div>
-
-          <div>
             <label className="label flex items-center gap-2">Webhook signing secret <SourceTag source={s.stripe.webhookSecretSource} set={s.stripe.webhookSecretSet} /></label>
             <input name="stripeWebhookSecret" type="password" autoComplete="off" placeholder={s.stripe.webhookSecretSet ? 'set — leave blank to keep' : 'whsec_… (or use the button below)'} className="input" />
             <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -187,7 +207,7 @@ export function AdminIntegrations() {
           </div>
 
           <div>
-            <label className="label">Price IDs</label>
+            <label className="label">Price IDs <span className="font-normal text-slate-400">— for Stripe Checkout (Option A)</span></label>
             <div className="grid gap-2 sm:grid-cols-2">
               {PRICE_KEYS.map((k) => (
                 <div key={k}>
@@ -196,6 +216,19 @@ export function AdminIntegrations() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div>
+            <label className="label">Payment Links <span className="font-normal text-slate-400">— optional (Option B); overrides Checkout for that plan</span></label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PRICE_KEYS.map((k) => (
+                <div key={k}>
+                  <span className="text-xs text-slate-500">{k.replace('.', ' ').toLowerCase()}</span>
+                  <input name={`link.${k}`} defaultValue={s.stripe.paymentLinks[k] ?? ''} placeholder="https://buy.stripe.com/…" className="input" />
+                </div>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">When set, “Subscribe” sends the user to this Stripe-hosted link instead of a Checkout Session. Leave blank to use the Price ID above. Webhook still attributes the subscription to the household.</p>
           </div>
         </div>
 
@@ -210,6 +243,15 @@ export function AdminIntegrations() {
           <div>
             <label className="label">From address</label>
             <input name="emailFrom" defaultValue={s.email.from} placeholder="Foster Care HMS &lt;no-reply@yourdomain.com&gt;" className="input" />
+            <p className="mt-1 text-xs text-slate-400">Must use a domain you’ve verified in Resend (for testing, <code>onboarding@resend.dev</code> sends only to your own account email).</p>
+          </div>
+          <div>
+            <label className="label">Send test email</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="recipient (defaults to your email)" className="input max-w-xs" />
+              <button type="button" onClick={sendTestEmail} disabled={busy} className="btn-secondary">Send test email</button>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">Save your key first. With the default <code>onboarding@resend.dev</code>, send only to your Resend-account email; with a verified domain you can send anywhere.</p>
           </div>
         </div>
 

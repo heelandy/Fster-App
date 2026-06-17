@@ -10,7 +10,7 @@ import { logAdmin } from '@/lib/audit';
 import {
   getIntegrationStatus,
   setStripeSecretKey, setStripePublishableKey, setStripeWebhookSecret, setStripePriceId,
-  setResendApiKey, setEmailFrom,
+  setStripePaymentLink, setResendApiKey, setEmailFrom,
 } from '@/lib/config';
 
 export const runtime = 'nodejs';
@@ -57,6 +57,16 @@ export function POST(req: Request) {
           if (value !== undefined) {
             await setStripePriceId(tier as PlanTier, interval as BillingInterval, value, admin.id);
             changed.push(`price.${tier}.${interval}`);
+          }
+        }
+      }
+    }
+    if (data.paymentLinks) {
+      for (const [tier, intervals] of Object.entries(data.paymentLinks)) {
+        for (const [interval, value] of Object.entries(intervals ?? {})) {
+          if (value !== undefined) {
+            await setStripePaymentLink(tier as PlanTier, interval as BillingInterval, value, admin.id);
+            changed.push(`paymentLink.${tier}.${interval}`);
           }
         }
       }

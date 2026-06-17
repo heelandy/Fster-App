@@ -23,6 +23,10 @@ function priceKey(tier: PlanTier, interval: BillingInterval): string {
   return `integration.stripe.price.${tier}.${interval}`;
 }
 
+function paymentLinkKey(tier: PlanTier, interval: BillingInterval): string {
+  return `integration.stripe.paymentLink.${tier}.${interval}`;
+}
+
 const ENV_PRICE: Record<string, string> = {
   'FAMILY.MONTHLY': env.STRIPE_PRICE_FAMILY_MONTHLY,
   'FAMILY.ANNUAL': env.STRIPE_PRICE_FAMILY_ANNUAL,
@@ -49,6 +53,15 @@ export async function getStripeWebhookSecret(): Promise<string> {
 export async function getStripePriceId(tier: PlanTier, interval: BillingInterval): Promise<string> {
   const fromDb = await getSettingValue(priceKey(tier, interval));
   return fromDb || ENV_PRICE[`${tier}.${interval}`] || '';
+}
+
+/**
+ * Optional Stripe Payment Link URL for a plan (created in the Stripe Dashboard).
+ * When set, checkout redirects straight to it instead of creating a Checkout
+ * Session — the simpler "no-code" path. DB-only (set via the Integrations page).
+ */
+export async function getStripePaymentLink(tier: PlanTier, interval: BillingInterval): Promise<string> {
+  return (await getSettingValue(paymentLinkKey(tier, interval))) || '';
 }
 
 export async function isStripeConfigured(): Promise<boolean> {
@@ -78,6 +91,9 @@ export async function setStripeWebhookEndpointId(v: string, by?: string) { await
 export async function setStripePriceId(tier: PlanTier, interval: BillingInterval, v: string, by?: string) {
   await setSetting(priceKey(tier, interval), v.trim(), by);
 }
+export async function setStripePaymentLink(tier: PlanTier, interval: BillingInterval, v: string, by?: string) {
+  await setSetting(paymentLinkKey(tier, interval), v.trim(), by);
+}
 export async function setResendApiKey(v: string, by?: string) { await setSecret(CONFIG_KEYS.resendApiKey, v.trim(), by); }
 export async function setEmailFrom(v: string, by?: string) { await setSetting(CONFIG_KEYS.emailFrom, v.trim(), by); }
 
@@ -104,8 +120,12 @@ export async function getIntegrationStatus() {
   const resendKey = await getResendApiKey();
 
   const prices: Record<string, string> = {};
+  const paymentLinks: Record<string, string> = {};
   for (const t of PAID_TIERS) {
-    for (const i of INTERVALS) prices[`${t}.${i}`] = await getStripePriceId(t, i);
+    for (const i of INTERVALS) {
+      prices[`${t}.${i}`] = await getStripePriceId(t, i);
+      paymentLinks[`${t}.${i}`] = await getStripePaymentLink(t, i);
+    }
   }
 
   return {
@@ -119,6 +139,7 @@ export async function getIntegrationStatus() {
       webhookSecretSource: dbWebhook ? 'db' : env.STRIPE_WEBHOOK_SECRET ? 'env' : 'unset',
       webhookEndpointId: (await getSettingValue(CONFIG_KEYS.stripeWebhookEndpointId)) ?? '',
       prices,
+      paymentLinks,
     },
     email: {
       apiKeySet: resendKey.length > 0,
