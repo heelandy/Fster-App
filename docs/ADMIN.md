@@ -65,6 +65,23 @@ is **not applicable** to a private foster-care app, plus a recommended roadmap.
 > - Go-live runbook: [DEPLOYMENT.md](../DEPLOYMENT.md). Legal scaffolds: `/privacy`, `/terms`.
 > - New permissions in use: `admins.manage` gates Integrations (SuperAdmin only).
 
+> ### 🆕 Update — admin CAN/CANNOT checklist batch (shipped 2026-06-17)
+> Verified the spec's "What an Admin CAN/SHOULD NOT Do" checklist (`Foster app.txt` §from line 1177)
+> against the code and closed every gap **in-app**:
+> - **User management:** admin **create user** (`POST /api/admin/users`, emails a set-password link),
+>   **edit name/email**, **verify account**, **send password reset** (admin never sees the password —
+>   only triggers the self-serve link), and **force-logout** (bumps `tokenVersion`). Roles/permissions per action.
+> - **Soft delete:** the Delete action no longer hard-deletes — it sets `User.deletedAt`, deactivates,
+>   revokes sessions, and is **restorable** (`restore` action). `requireUser` blocks soft-deleted accounts.
+> - **Finance:** new **Finance** tab — recent payments, **in-app Stripe refunds** (full/partial) and
+>   **account credits** (customer balance). `payments.view` / `payments.refund`.
+> - **Reports:** **CSV export** (`reports.export`) for users / subscriptions / revenue — account &
+>   billing metadata only, never child/case data.
+> - The role matrix's `payments.refund` and `reports.export` permissions now have real implementations
+>   (previously advertised but unbuilt). Admin console is now **11 tabs** (adds Finance).
+> All enforced negatives still hold: no password visibility, no private child data, immutable audit logs,
+> masked finance, payment secrets restricted to SUPER_ADMIN + TOTP step-up.
+
 **Legend:** ✅ implemented · 🟡 partial · ⬜ not built · ➖ not applicable to this product
 
 ## Summary

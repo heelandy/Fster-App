@@ -8,12 +8,14 @@ declare module 'next-auth' {
       name?: string | null;
       role: 'USER' | 'ADMIN';
       tokenVersion: number;
+      sid?: string; // UserSession id for this device (per-device revocation)
     };
   }
   interface User {
     id: string;
     role: 'USER' | 'ADMIN';
     tokenVersion: number;
+    sid?: string;
   }
 }
 
@@ -22,5 +24,6 @@ declare module 'next-auth/jwt' {
     uid: string;
     role: 'USER' | 'ADMIN';
     tv: number;
+    sid?: string;
   }
 }

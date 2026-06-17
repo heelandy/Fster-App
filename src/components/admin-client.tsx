@@ -5,6 +5,7 @@ import { AdminTickets } from './admin-tickets';
 import { AdminAnalytics } from './admin-analytics';
 import { AdminSystem } from './admin-system';
 import { AdminIntegrations } from './admin-integrations';
+import { AdminFinance } from './admin-finance';
 
 interface AdminUser {
   id: string;
@@ -17,6 +18,8 @@ interface AdminUser {
   internalNote: string | null;
   lockedUntil: string | null;
   lastLoginAt: string | null;
+  emailVerifiedAt: string | null;
+  deletedAt: string | null;
   _count: { memberships: number; ownedHouseholds: number };
 }
 interface LogRow {
@@ -55,7 +58,7 @@ interface Stats {
 
 const ADMIN_ROLES = ['', 'READ_ONLY', 'SUPPORT', 'MODERATOR', 'MANAGER', 'FINANCE_ADMIN', 'ADMIN', 'SUPER_ADMIN'];
 
-type Tab = 'overview' | 'users' | 'tickets' | 'analytics' | 'notifications' | 'settings' | 'integrations' | 'system' | 'security' | 'admin';
+type Tab = 'overview' | 'users' | 'tickets' | 'analytics' | 'finance' | 'notifications' | 'settings' | 'integrations' | 'system' | 'security' | 'admin';
 
 export function AdminClient() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -94,11 +97,11 @@ export function AdminClient() {
       .catch(() => {});
   }, []);
 
-  async function userAction(id: string, action: string, value?: string) {
+  async function userAction(id: string, action: string, value?: string, extra?: Record<string, unknown>) {
     const res = await fetch(`/api/admin/users/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, value }),
+      body: JSON.stringify({ action, value, ...extra }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -106,9 +109,35 @@ export function AdminClient() {
       return;
     }
     await loadUsers(query);
+    if (action === 'sendPasswordReset') alert('Password-reset email sent.');
+  }
+  function editUser(u: AdminUser) {
+    const name = prompt('Name:', u.name ?? '');
+    if (name === null) return;
+    const email = prompt('Email:', u.email);
+    if (email === null) return;
+    void userAction(u.id, 'editProfile', undefined, { name, email });
+  }
+  async function createUser() {
+    const email = prompt('New user email:');
+    if (!email) return;
+    const name = prompt('Name:', '');
+    if (name === null) return;
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d?.error || 'Could not create the user.');
+      return;
+    }
+    alert('User created. A set-password email has been sent.');
+    await loadUsers(query);
   }
   async function deleteUser(id: string) {
-    if (!confirm('Permanently delete this user and all their data? This cannot be undone.')) return;
+    if (!confirm('Delete this user? Their account is deactivated and retained for recovery (soft delete). You can restore it later.')) return;
     const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -158,6 +187,7 @@ export function AdminClient() {
         {tabBtn('users', `Users (${users.length})`)}
         {tabBtn('tickets', 'Tickets')}
         {tabBtn('analytics', 'Analytics')}
+        {tabBtn('finance', 'Finance')}
         {tabBtn('notifications', `Notifications${unread ? ` (${unread})` : ''}`)}
         {tabBtn('settings', 'Settings')}
         {tabBtn('integrations', 'Integrations')}
@@ -168,6 +198,7 @@ export function AdminClient() {
 
       {tab === 'tickets' && <AdminTickets />}
       {tab === 'analytics' && <AdminAnalytics />}
+      {tab === 'finance' && <AdminFinance />}
       {tab === 'integrations' && <AdminIntegrations />}
       {tab === 'system' && <AdminSystem />}
 
@@ -214,6 +245,7 @@ export function AdminClient() {
               className="input max-w-sm"
             />
             <button type="submit" className="btn-secondary">Search</button>
+            <button type="button" onClick={createUser} className="btn-primary ml-auto">+ New user</button>
           </form>
           <div className="card overflow-x-auto p-0">
             <table className="w-full text-left text-sm">
@@ -237,10 +269,12 @@ export function AdminClient() {
                         {u.internalNote && <p className="mt-1 text-xs italic text-amber-700">📝 {u.internalNote}</p>}
                       </td>
                       <td className="px-3 py-3">
-                        {u.isBanned ? <span className="badge bg-red-100 text-red-700">Banned</span>
+                        {u.deletedAt ? <span className="badge bg-slate-800 text-white">Deleted</span>
+                          : u.isBanned ? <span className="badge bg-red-100 text-red-700">Banned</span>
                           : u.isActive ? <span className="badge bg-green-100 text-green-700">Active</span>
                           : <span className="badge bg-slate-200 text-slate-600">Suspended</span>}
-                        {locked && <span className="badge ml-1 bg-amber-100 text-amber-700">Locked</span>}
+                        {locked && !u.deletedAt && <span className="badge ml-1 bg-amber-100 text-amber-700">Locked</span>}
+                        {!u.emailVerifiedAt && !u.deletedAt && <span className="badge ml-1 bg-amber-50 text-amber-700">Unverified</span>}
                       </td>
                       <td className="px-3 py-3">
                         <select
@@ -258,15 +292,25 @@ export function AdminClient() {
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-2 text-xs">
-                          {u.isActive
-                            ? <button onClick={() => userAction(u.id, 'suspend')} className="text-amber-700 hover:underline">Suspend</button>
-                            : <button onClick={() => userAction(u.id, 'reactivate')} className="text-green-700 hover:underline">Reactivate</button>}
-                          {u.isBanned
-                            ? <button onClick={() => userAction(u.id, 'unban')} className="text-green-700 hover:underline">Unban</button>
-                            : <button onClick={() => userAction(u.id, 'ban')} className="text-red-700 hover:underline">Ban</button>}
-                          {locked && <button onClick={() => userAction(u.id, 'unlock')} className="text-blue-700 hover:underline">Unlock</button>}
-                          <button onClick={() => { const v = prompt('Internal note:', u.internalNote ?? ''); if (v !== null) userAction(u.id, 'note', v); }} className="text-slate-600 hover:underline">Note</button>
-                          <button onClick={() => deleteUser(u.id)} className="text-red-700 hover:underline">Delete</button>
+                          {u.deletedAt ? (
+                            <button onClick={() => userAction(u.id, 'restore')} className="text-green-700 hover:underline">Restore</button>
+                          ) : (
+                            <>
+                              {u.isActive
+                                ? <button onClick={() => userAction(u.id, 'suspend')} className="text-amber-700 hover:underline">Suspend</button>
+                                : <button onClick={() => userAction(u.id, 'reactivate')} className="text-green-700 hover:underline">Reactivate</button>}
+                              {u.isBanned
+                                ? <button onClick={() => userAction(u.id, 'unban')} className="text-green-700 hover:underline">Unban</button>
+                                : <button onClick={() => userAction(u.id, 'ban')} className="text-red-700 hover:underline">Ban</button>}
+                              {locked && <button onClick={() => userAction(u.id, 'unlock')} className="text-blue-700 hover:underline">Unlock</button>}
+                              {!u.emailVerifiedAt && <button onClick={() => userAction(u.id, 'verify')} className="text-green-700 hover:underline">Verify</button>}
+                              <button onClick={() => editUser(u)} className="text-slate-600 hover:underline">Edit</button>
+                              <button onClick={() => userAction(u.id, 'sendPasswordReset')} className="text-blue-700 hover:underline">Send reset</button>
+                              <button onClick={() => { if (confirm('Sign this user out of all devices?')) userAction(u.id, 'forceLogout'); }} className="text-blue-700 hover:underline">Force logout</button>
+                              <button onClick={() => { const v = prompt('Internal note:', u.internalNote ?? ''); if (v !== null) userAction(u.id, 'note', v); }} className="text-slate-600 hover:underline">Note</button>
+                              <button onClick={() => deleteUser(u.id)} className="text-red-700 hover:underline">Delete</button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

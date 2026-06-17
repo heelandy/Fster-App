@@ -1,1175 +1,612 @@
-Foster app
+==================================================================
+FOSTER CARE HOME MANAGEMENT SYSTEM — SPECIFICATION & BUILD STATUS
+==================================================================
+A secure, private, mobile-friendly web app for foster parents to manage
+placements, appointments, documents, routines, expenses, contacts,
+medications and licensing — plus a full platform-admin console.
+
+Build verified: Prisma schema valid · Next.js production build passing ·
+TypeScript typecheck passing · 61 unit tests passing · cybersecurity audit
+PASS (SECURITY_AUDIT_REPORT.md). See README.md / DEPLOYMENT.md.
+
+Milestones:  Core app .......... 2026-06-15
+             Admin platform .... 2026-06-16
+             Finance + admin user-management batch .... 2026-06-17
+
+LEGEND:  ✅ done   🟡 partial   ➖ not applicable to this product
+         ⬜ not built (future / larger-scope vision)
+
+This document is organized in five parts, with every requirement listed
+once and marked with its status:
+
+  PART 1 — Core product (the foster-parent app)
+  PART 2 — Admin platform (the 25-section admin spec)
+  PART 3 — Admin capabilities, restrictions & role tiers (consolidated)
+  PART 4 — Future / out-of-scope (multi-agency + case-worker + AI vision)
+  PART 5 — Security threat model & defense status
+  SUMMARY
+
 
 ==================================================================
-✅ BUILD STATUS — CORE COMPLETED 2026-06-15 · ADMIN PLATFORM 2026-06-16
+PART 1 — CORE PRODUCT (FOSTER-PARENT APP)
 ==================================================================
-The Foster Care Home Management System has been built. Each section
-below is marked [✅ DONE]. Verification: Prisma schema valid, Next.js
-production build passing, TypeScript typecheck passing, 49 unit tests
-passing, and a full cybersecurity audit completed (SECURITY_AUDIT_REPORT.md).
-See README.md for setup and run instructions.
+Goal: a private app for foster parents to manage placement information,
+appointments, documents, routines, expenses, contacts and licensing —
+simple, secure, mobile-friendly, for real daily use.
 
-Core feature sections .......... [✅ DONE] (1–9)
-User roles ..................... [✅ DONE]
-Payment / subscriptions ........ [✅ DONE]
-Payment plan options ........... [✅ DONE]
-Stripe requirements ............ [✅ DONE]
-Security & privacy ............. [✅ DONE]
-Cybersecurity test/report ...... [✅ DONE]
-Database models (32) ........... [✅ DONE]
-Tech stack ..................... [✅ DONE]
-Deliverables ................... [✅ DONE]
-Acceptance criteria ............ [✅ DONE]
-Build instructions (all steps) . [✅ DONE]
+------------------------------------------------------------------
+CORE FEATURES
+------------------------------------------------------------------
+1. Child Profile Management ✅
+   Name / preferred name, age, date of birth, placement date, case number,
+   caseworker, school, doctor, allergies, medications, important notes,
+   emergency contacts, placement status. Sensitive fields are access-controlled.
+
+2. Appointments & Calendar ✅
+   Doctor, therapy, dental, court dates, school meetings, caseworker visits,
+   home inspections, licensing deadlines. Reminders + calendar views.
+
+3. Document Storage ✅
+   Secure upload/storage of placement paperwork, medical/school/court/
+   licensing documents, receipts, case notes. Private + access-controlled.
+
+4. Daily Care Logs ✅
+   Meals, sleep, behavior, mood, school updates, visits, medical concerns,
+   incidents, milestones. Date-based history.
+
+5. Medication Tracking ✅
+   Name, dosage, schedule, start/end date, prescribing doctor, notes,
+   missed doses. Includes reminders and a give/miss/refuse log.
+
+6. Expense Tracking ✅
+   Clothing, school supplies, food, hygiene, activities, transportation,
+   medical, childcare, room setup, receipts. Monthly summaries + CSV export.
+
+7. Contact Management ✅
+   Caseworker, licensing worker, GAL, attorney, therapist, doctor, dentist,
+   teacher, school counselor, biological family, emergency contacts —
+   with phone, email, agency, notes and role.
+
+8. Routines & Checklists ✅
+   Reusable morning / after-school / bedtime / visit-day / school-day /
+   intake / home-inspection / medication checklists. Mark tasks complete.
+
+9. Licensing & Compliance Tracker ✅
+   Training hours, fingerprinting, background checks, home-study items,
+   fire inspection, medical forms, pet vaccinations, CPR/First Aid,
+   annual renewal deadlines, required documents. Shows upcoming deadlines.
+
+------------------------------------------------------------------
+USER ROLES ✅
+------------------------------------------------------------------
+• Foster Parent — manage household, create/edit child profiles, upload
+  documents, track appointments/expenses/medications/notes.
+• Co-Parent / Household Member — view and help manage approved items;
+  permissions can be limited.
+• Babysitter / Respite Caregiver — limited care instructions only; no
+  private case documents, no court/legal information.
+• Admin — manage users and system settings; CANNOT casually view private
+  child data unless explicitly granted.
+
+------------------------------------------------------------------
+PAYMENTS & SUBSCRIPTIONS (Stripe) ✅
+------------------------------------------------------------------
+Subscription plans ✅
+• Free — one household, one child profile, limited checklists, limited
+  appointment tracking, no document upload/exports.
+• Family — multiple child profiles, appointments, daily care logs,
+  medication & expense tracking, basic document uploads.
+• Pro Foster Parent — unlimited child profiles, full document storage,
+  licensing tracker, export reports, advanced reminders, co-parent access,
+  babysitter limited-access mode.
+• Agency / Multi-Home — multiple homes, agency dashboard, household-level
+  permissions, compliance overview, exportable reports.
+
+Payment plan options ✅
+Monthly billing · annual billing · promo codes · trial (if enabled) ·
+upgrade · downgrade · cancel · resume · update payment method · view
+invoices · download receipts.
+
+Stripe requirements ✅
+Checkout · Customer Portal · Webhooks · subscription-status syncing ·
+failed-payment handling · grace period · automatic access removal &
+restoration · signature-verified webhooks · coupon/promo support.
+Raw card information is never stored (entry happens on Stripe-hosted pages).
+
+------------------------------------------------------------------
+SECURITY & PRIVACY ✅
+------------------------------------------------------------------
+Secure authentication · role-based access control · household-based
+permissions · limited-caregiver mode · password hashing (bcrypt 12) ·
+input validation (Zod) · secure file storage · private document URLs ·
+authenticated file access · API rate limiting · audit logs + admin audit
+logs · secure session handling · protection against SQLi / XSS / CSRF /
+IDOR / brute-force · secrets in environment variables · error handling that
+never leaks private data.
+Invariant: child information, case numbers, documents and private notes are
+never exposed to unauthorized users.
+
+------------------------------------------------------------------
+CYBERSECURITY TEST ✅  (SECURITY_AUDIT_REPORT.md — verdict PASS)
+------------------------------------------------------------------
+Reviewed: broken auth, broken access control, IDOR, exposed child data,
+exposed documents, insecure upload, public-bucket mistakes, SQLi, XSS, CSRF,
+weak password handling, admin-route exposure, webhook spoofing, rate-limit
+bypass, sensitive-data leakage, dependency vulnerabilities.
+Performed: static review · dependency scan · route-permission audit · file-
+storage audit · auth-flow audit · payment-flow audit · OWASP Top 10 checklist.
+All critical & high-risk findings fixed before sign-off.
+
+------------------------------------------------------------------
+DATABASE MODELS ✅  (prisma/schema.prisma)
+------------------------------------------------------------------
+User, Household, HouseholdMember, ChildProfile, Placement, Appointment,
+Medication, MedicationLog, DailyCareLog, Expense, Receipt, Document, Contact,
+Routine, RoutineTask, Checklist, ChecklistItem, LicensingRequirement,
+TrainingHour, Subscription, Payment, Invoice, Plan, AdminAuditLog,
+SecurityAuditLog — plus PasswordResetToken, EmailVerificationToken,
+SupportTicket, SupportMessage, HouseholdInvite, Setting, Notification.
+
+------------------------------------------------------------------
+TECH STACK ✅
+------------------------------------------------------------------
+Next.js (App Router) · TypeScript · PostgreSQL · Prisma · Tailwind CSS ·
+NextAuth (credentials) · Stripe · Zod · private file storage · rate-limit
+middleware · AES-256-GCM field/file encryption · Vitest.
+
+------------------------------------------------------------------
+DELIVERABLES ✅
+------------------------------------------------------------------
+Project structure · DB schema · auth system · role-based permissions ·
+foster-care dashboard · child-profile system · appointment calendar ·
+document upload · daily care logs · medication tracker · expense tracker ·
+contact manager · routine/checklist system · licensing tracker · Stripe
+payments · subscriber dashboard · admin dashboard · security protections ·
+cybersecurity audit report · setup instructions · .env.example · tests.
+
+------------------------------------------------------------------
+ACCEPTANCE CRITERIA ✅  (all met)
+------------------------------------------------------------------
+Create household ✔ · create child profiles ✔ · track appointments ✔ ·
+upload private documents securely ✔ · log medications & daily care ✔ ·
+track expenses & receipts ✔ · manage contacts ✔ · create routines &
+checklists ✔ · track licensing ✔ · subscribe to paid plans ✔ · Stripe
+billing works ✔ · free users gated from paid features ✔ · babysitters see
+only limited care info ✔ · unauthorized users cannot view child data ✔ ·
+admin routes protected ✔ · cybersecurity audit complete ✔ ·
+SECURITY_AUDIT_REPORT.md exists ✔ · critical/high issues fixed ✔ ·
+app runs locally with no errors ✔.
+
+
 ==================================================================
+PART 2 — ADMIN PLATFORM (25-section spec)
+==================================================================
+The admin console lives at /admin in its own route group, gated by an ADMIN
+JWT + a granular permission matrix (lib/admin.ts). 11 tabs: Overview · Users ·
+Tickets · Analytics · Finance · Notifications · Settings · Integrations ·
+System · Security log · Admin log.
+
+ 1. Admin purpose (control center) ✅
+    One dashboard to manage the whole app without direct database access.
+
+ 2. Admin user roles (7 tiers) ✅
+    SUPER_ADMIN · ADMIN · MANAGER · SUPPORT · MODERATOR · FINANCE_ADMIN ·
+    READ_ONLY. (Consolidated capability/restriction table is in PART 3.)
+
+ 3. Admin login system ✅ 🟡
+    ✅ email+password, 2FA (TOTP) with scannable QR, password reset,
+       login-attempt limits, IP logging, session timeout, forced logout,
+       admin activity logging, AND a per-device active-session list with
+       selective revoke (/account → Active sessions).
+    🟡 no separate admin-only login page (admins use the same hardened
+       /login; protection is 2FA + RBAC, not a distinct URL).
+
+ 4. Admin dashboard ✅
+    Tiles: total/active/new users, suspended, revenue, failed payments,
+    open tickets, security alerts (24h), server/database/API status,
+    recent admin actions. ("Understand the app in <30s.")
+
+ 5. User management module ✅
+    Search/filter; view account metadata; create user (emails set-password
+    link); edit name/email; reset password (admin triggers the link, never
+    sees the password); verify account; suspend; ban; reactivate; unlock;
+    add internal note; assign role; soft-delete (deactivate + tombstone,
+    restorable). All actions audited old→new. Never exposes hashes/child data.
+
+ 6. Admin management (manage admins) ✅
+    Create admin (create-user + adminRole, needs admins.manage) · set/change
+    admin role · disable (suspend) · force password reset · limit permissions
+    (role matrix) · view admin activity (admin audit log) · remove admin access.
+
+ 7. Permission system (granular) ✅
+    adminCan() matrix enforced per route: users.view/edit/suspend/delete/note,
+    admins.manage, payments.view/refund, settings.update, content.moderate,
+    support.manage, analytics.view, system.view, logs.view, reports.export.
+
+ 8. Content management ➖
+    Not applicable — a private foster-care app has no public/user-generated
+    content (posts, products, lessons) to moderate.
+
+ 9. Reports & moderation ➖
+    Not applicable — no public UGC or user-on-user reporting. (User safety is
+    handled via Support tickets, §11, and account actions, §5.)
+
+10. Payments & subscription module ✅
+    Finance tab: recent payments, subscriptions by tier/status, revenue,
+    payment issues. In-app Stripe refunds (full/partial) and account credits.
+    Mark payment issue (via status) · export financial report (CSV).
+    🟡 plan catalogue is code+Stripe-config (no plan-CRUD UI); coupons via Stripe.
+
+11. Support ticket module ✅
+    User threads (/support) + staff Tickets tab: reply, set status
+    (OPEN/PENDING/RESOLVED/CLOSED), priority. Admin notified on new ticket.
+
+12. Settings module ✅
+    System settings: app name, maintenance mode, signups enabled, email-
+    verification required. Integrations tab (SUPER_ADMIN + TOTP step-up):
+    live Stripe keys/prices + email config, no code/env edits.
+
+13. Analytics & reporting ✅
+    DAU/WAU/MAU, stickiness, signups & active-user charts (inline SVG), churn,
+    revenue, KPIs. CSV report export (users/subscriptions/revenue).
+
+14. Audit log system ✅
+    AdminAuditLog + SecurityAuditLog: actor, action, target, old/new value,
+    IP, timestamp. Append-only — immutable (no edit/delete route exists).
+
+15. Notification system ✅
+    Internal admin alerts on new signup, failed payment, new support ticket;
+    unread counter in the console.
+
+16. Security architecture ✅ 🟡
+    HTTPS/HSTS, 2FA, strong passwords, session expiry, role permissions, IP
+    logging, rate limiting, CSRF, XSS (nonce CSP), SQLi-safe (Prisma),
+    AES-256-GCM encryption at rest, admin action logs, no direct DB editing.
+    🟡 backup system is operational (see §22), not application code.
+
+17. Database structure ✅
+    users/admin-roles, support_tickets, settings, notifications, invites,
+    reset/verification tokens, payments, subscriptions, audit_logs — all present.
+
+18. Backend architecture (services) ✅
+    Clean lib/ layer: auth, authz, admin, totp, tokens, email, stripe,
+    billing-sync, notify, settings, audit, rate-limit, storage, config, etc.
+
+19. Frontend admin panel ✅
+    11 pages/tabs (see header). One web interface controls the app.
+
+20. API structure (admin routes) ✅
+    Every /api/admin/* route is auth + permission gated: users (GET/POST),
+    users/[id] (PATCH/DELETE), payments, payments/[id]/refund, payments/credit,
+    reports/export, tickets, analytics, health, settings, notifications, audit,
+    step-up, integrations.
+
+21. System health module ✅ 🟡
+    DB latency, storage usage, memory, uptime, integration status, config
+    warnings. 🟡 CPU/uptime are process-level (no external infra metrics).
+
+22. Backup & recovery 🟡
+    Operational, documented in DEPLOYMENT.md (managed Postgres backups /
+    pg_dump cron, encrypted storage, restore testing) — not application code.
+
+23. Admin workflow ✅
+    Login (2FA) → check dashboard alerts → review new users → answer tickets →
+    check failed payments → review system/security → export reports → review
+    audit logs → log out. Supported by the tabs above.
+
+24. Recommended tech stack ✅
+    Documented variant chosen: Next.js route handlers (not NestJS), NextAuth
+    (not a separate JWT service), Resend email, local private storage (S3/R2
+    pluggable), optional Redis rate limit, optional error-reporting webhook.
+
+25. Final architecture summary ✅
+    ~22/25 areas fully implemented; §8/§9 not applicable; §22 operational.
+
 
 ==================================================================
-✅ ADMIN PLATFORM STATUS (spec sections 1–25, starting line 492)
+PART 3 — ADMIN CAPABILITIES, RESTRICTIONS & ROLE TIERS
 ==================================================================
-Built across two batches and verified (typecheck + build + tests).
-Legend: ✅ done · 🟡 partial · ➖ not applicable to a private foster app
+(Consolidates the former "What an Admin CAN/SHOULD NOT Do" and the three
+separate role lists into one place.)
 
- 1. Admin purpose (control center) .......... ✅ /admin console, 9 tabs
- 2. Admin user roles (7 staff tiers) ........ ✅ SUPER_ADMIN…READ_ONLY
- 3. Admin login system ...................... ✅ 2FA(TOTP), password reset,
-        forced logout, attempt limits, IP logging, session timeout, activity log
-        (🟡 no separate admin-only login page / per-device list)
- 4. Admin dashboard ......................... ✅ users/active/revenue/failed-pay/
-        open-tickets/security/server+db+api status tiles
- 5. User management module .................. ✅ search, suspend/ban/unlock/note/
-        role/delete, all audited
- 6. Admin management (manage admins) ........ ✅ set admin role from Users tab
- 7. Permission system (granular) ........... ✅ adminCan() matrix per route
- 8. Content management ...................... ➖ no public/UGC surface
- 9. Reports & moderation .................... ➖ (covered instead by Support 11)
-10. Payments & subscription module .......... 🟡 Stripe + finance tiles; refunds
-        delegated to the Stripe Dashboard
-11. Support ticket module ................... ✅ user threads + staff replies/status
-12. Settings module ........................ ✅ maintenance/signup/app-name flags
-13. Analytics & reporting .................. ✅ DAU/WAU/MAU, signups, churn, charts
-14. Audit log system ....................... ✅ admin + security logs, old/new diffs
-15. Notification system .................... ✅ admin alerts on signup/payment/ticket
-16. Security architecture .................. ✅ + 2FA + field-level encryption at rest
-17. Database structure ..................... ✅ users/roles/tickets/settings/
-        notifications/invites/reset-tokens
-18. Backend architecture (services) ........ ✅ lib/ services for every module
-19. Frontend admin panel ................... ✅ 9 tabs
-20. API structure (admin routes) .......... ✅ users/tickets/analytics/health/
-        settings/notifications/audit
-21. System health module ................... ✅ DB latency, storage, memory, env
-22. Backup & recovery ...................... 🟡 operational — documented (pg_dump /
-        managed Postgres backups); not application code
-23. Admin workflow ......................... ✅ login → dashboard → act → audit
-24. Recommended tech stack ................. ✅ documented variant (Next route
-        handlers, NextAuth, Resend email, local private storage)
-25. Final architecture summary ............. ✅ ~22/25 areas implemented
+------------------------------------------------------------------
+WHAT AN ADMIN CAN DO  — all implemented
+------------------------------------------------------------------
+User management ✅ — view accounts · create users · edit info · suspend ·
+  ban · reset passwords (trigger link) · unlock · verify accounts · assign roles.
+Support operations ✅ — view tickets · respond · escalate (priority) · close.
+Business operations ✅ — view subscriptions/invoices/payments · issue refunds ·
+  apply credits · 🟡 manage plans (code/Stripe config).
+Security operations ✅ — view login history (security log) · view suspicious
+  activity · force-logout sessions · lock compromised accounts (suspend/ban).
+Reporting & analytics ✅ — view analytics · export reports (CSV) · monitor
+  KPIs · track revenue.
+System monitoring ✅ — view system health/server status/logs · monitor
+  performance · monitor errors (optional error-webhook).
+Content management ➖ — N/A (no UGC; see §8/§9).
 
-Account security (all users): /account — change password, enable/disable 2FA
-with backup codes, "sign out of all devices". Forgot-password at /forgot-password.
-Email-based household invites at /dashboard/household (accept at /invite).
-Appointment reminders fire via POST /api/cron/reminders (Bearer CRON_SECRET).
-Pluggable email = Resend HTTP API; unset key ⇒ dev-log mode (links in server log).
-Remaining/optional: Next.js 14→16 major upgrade (deferred — staying on the
-patched 14.2.35; tracked as separately-verified future work), managed DB
-backups, S3/object storage, Redis-backed rate limiting.
+------------------------------------------------------------------
+WHAT AN ADMIN MUST NOT DO  — all enforced
+------------------------------------------------------------------
+✅ Never see passwords/PINs/secret questions/auth tokens — only bcrypt hashes
+   exist; admin can only trigger a password reset.
+✅ Never read private child/medical/legal data — requireHousehold has no admin
+   bypass; admin views are aggregate counts only; data encrypted at rest.
+✅ Audit logs immutable — append-only; no edit/delete/hide path.
+✅ Cannot bypass security controls — no toggle disables logging/monitoring.
+✅ No direct production-DB access — everything goes through guarded routes.
+✅ Payment-provider secrets restricted — Stripe keys encrypted, masked,
+   SUPER_ADMIN + TOTP step-up only; encryption keys are env-only.
+✅ Financial info masked / no raw card data — card entry is Stripe-hosted.
+✅ No permanent hard-delete of records — soft delete / deactivate / restore.
+
+------------------------------------------------------------------
+ADMIN ROLE TIERS ✅  (7 implemented; capabilities via the permission matrix)
+------------------------------------------------------------------
+SUPER_ADMIN  — everything: create admins, change permissions, configure system,
+               integrations. Cannot see passwords, delete audit logs, or
+               decrypt protected data without authorization.
+ADMIN        — manage users, content moderation, daily operations; not critical
+               system settings unless granted.
+MANAGER      — view reports, supervise; limited access to sensitive data.
+SUPPORT      — view users, edit basic info, reset passwords, handle tickets;
+               no finance / security / infrastructure.
+MODERATOR    — handle reports & user safety actions; no payments / settings / DB.
+FINANCE_ADMIN— view payments, process refunds, generate financial reports;
+               cannot modify users or infrastructure.
+READ_ONLY    — view dashboards/reports only; no changes.
+(➖ "System/Infrastructure Admin" is an operational ops role, not an in-app tier.)
+
+------------------------------------------------------------------
+AUDIT-LOG REQUIREMENT ✅  (single source of truth)
+------------------------------------------------------------------
+Every important action is recorded — login, account changes, role/permission
+changes, subscription/payment changes (refund, credit), settings changes,
+suspension/deletion. Each entry stores actor, action, target, old value, new
+value, date/time, IP (and device where available). Nothing is editable after
+it is logged.
+
+
 ==================================================================
-
-Yes — Foster Care Management App:
-Build a secure web application called Foster Care Home Management System.
-Goal
-Create a private app for foster parents to manage foster care placement information, appointments, documents, routines, expenses, contacts, and licensing requirements.
-The app should be simple, secure, mobile-friendly, and designed for real foster parent daily use.
-
-
-⸻
-
-
-Core Features
-1. Child Profile Management   [✅ DONE]
-Create secure child profiles with:
-Name or preferred name
-Age
-Date of birth
-Placement date
-Case number
-Caseworker
-School
-Doctor
-Allergies
-Medications
-Important notes
-Emergency contacts
-Placement status
-Sensitive information must be protected.
-
-
-⸻
-
-
-2. Appointments and Calendar   [✅ DONE]
-Track:
-Doctor visits
-Therapy
-Dental
-Court dates
-School meetings
-Caseworker visits
-Home inspections
-Licensing deadlines
-Allow reminders and calendar views.
-
-
-⸻
-
-
-3. Document Storage   [✅ DONE]
-Allow secure upload and storage for:
-Placement paperwork
-Medical forms
-School forms
-Court documents
-Licensing documents
-Receipts
-Case notes
-Documents must be private and access-controlled.
-
-
-⸻
-
-
-4. Daily Care Logs   [✅ DONE]
-Track daily notes such as:
-Meals
-Sleep
-Behavior
-Mood
-School updates
-Visits
-Medical concerns
-Incidents
-Milestones
-Allow date-based history.
-
-
-⸻
-
-
-5. Medication Tracking   [✅ DONE]
-Track:
-Medication name
-Dosage
-Schedule
-Start date
-End date
-Prescribing doctor
-Notes
-Missed doses
-Include reminders and logs.
-
-
-⸻
-
-
-6. Expense Tracking   [✅ DONE]
-Track foster-care-related expenses:
-Clothing
-School supplies
-Food
-Hygiene
-Activities
-Transportation
-Medical
-Childcare
-Room setup
-Receipts
-Allow monthly summaries and export.
-
-
-⸻
-
-
-7. Contact Management   [✅ DONE]
-Store important contacts:
-Caseworker
-Licensing worker
-GAL
-Attorney
-Therapist
-Doctor
-Dentist
-Teacher
-School counselor
-Biological family contacts if allowed
-Emergency contacts
-Include phone, email, agency, notes, and role.
-
-
-⸻
-
-
-8. Routines and Checklists   [✅ DONE]
-Create reusable routines for:
-Morning routine
-After-school routine
-Bedtime routine
-Visit day checklist
-School day checklist
-New placement intake checklist
-Home inspection checklist
-Medication checklist
-Allow parents to mark tasks complete.
-
-
-⸻
-
-
-9. Licensing and Compliance Tracker   [✅ DONE]
-Track:
-Training hours
-Fingerprinting
-Background checks
-Home study items
-Fire inspection
-Medical forms
-Pet vaccination records
-CPR/First Aid
-Annual renewal deadlines
-Required documents
-Show upcoming deadlines.
-
-
-⸻
-
-
-User Roles   [✅ DONE]
-Create these roles:
-Foster Parent
-Can manage their household information
-Can create and edit child profiles
-Can upload documents
-Can track appointments, expenses, medications, and notes
-Co-Parent / Household Member
-Can view and help manage approved household items
-Permissions can be limited
-Babysitter / Respite Caregiver
-Can view limited care instructions only
-Cannot view private case documents
-Cannot access court/legal information
-Admin
-Can manage users and system settings
-Cannot casually view private child data unless explicitly granted
-
-
-⸻
-
-
-Payment, Subscription, and Payment Plan System   [✅ DONE]
-Use Stripe for payments.
-Subscription Plans
-Create:
-Free Plan
-One household
-One child profile
-Limited checklists
-Limited appointment tracking
-No document upload or exports
-Family Plan
-Monthly subscription
-Multiple child profiles
-Appointment tracking
-Daily care logs
-Medication tracking
-Expense tracking
-Basic document uploads
-Pro Foster Parent Plan
-Monthly subscription
-Unlimited child profiles
-Full document storage
-Licensing tracker
-Export reports
-Advanced reminders
-Co-parent access
-Babysitter limited-access mode
-Agency / Multi-Home Plan
-Higher-tier plan
-Multiple foster homes
-Agency dashboard
-Household-level permissions
-Compliance overview
-Exportable reports
-
-
-⸻
-
-
-Payment Plan Options   [✅ DONE]
-Users should be able to:
-Choose monthly billing
-Choose annual billing
-Use promo codes
-Start a trial if enabled
-Upgrade plans
-Downgrade plans
-Cancel subscriptions
-Resume subscriptions
-Update payment method
-View invoices
-Download receipts
-
-
-⸻
-
-
-Stripe Requirements   [✅ DONE]
-Implement:
-Stripe Checkout
-Stripe Customer Portal
-Stripe Webhooks
-Subscription status syncing
-Failed payment handling
-Grace period for failed payments
-Automatic access removal
-Automatic access restoration
-Secure webhook signature verification
-Coupon and promo code support
-Never store raw card information.
-
-
-⸻
-
-
-Security and Privacy Requirements   [✅ DONE]
-This app stores highly sensitive foster care information, so security must be extremely strong.
-Implement:
-Secure authentication
-Role-based access control
-Household-based permissions
-Limited caregiver access mode
-Password hashing
-Input validation
-Secure file storage
-Private document URLs
-File access expiration
-API rate limiting
-Audit logs
-Admin audit logs
-Secure session handling
-Protection against SQL injection
-Protection against XSS
-Protection against CSRF
-Protection against IDOR
-Protection against brute-force login
-Environment variables for secrets
-Error handling that does not leak private data
-Do not expose child information, case numbers, documents, or private notes to unauthorized users.
-
-
-⸻
-
-
-Cybersecurity Test Requirement   [✅ DONE — see SECURITY_AUDIT_REPORT.md, verdict PASS]
-After building the app, run a cybersecurity review and create:
-SECURITY_AUDIT_REPORT.md
-Check for:
-Broken authentication
-Broken access control
-IDOR vulnerabilities
-Exposed child data
-Exposed documents
-Insecure file upload
-Public storage bucket mistakes
-SQL injection
-XSS
-CSRF
-Weak password handling
-Admin route exposure
-Payment webhook spoofing
-Rate-limit bypass
-Sensitive data leakage
-Dependency vulnerabilities
-Run:
-Static code review
-Dependency vulnerability scan
-Route permission audit
-File storage permission audit
-Authentication flow audit
-Payment flow audit
-Manual OWASP Top 10 checklist
-The report should include:
-Vulnerability name
-Risk level
-Location in code
-Explanation
-Fix applied
-Remaining risk
-Final pass/fail status
-Do not mark complete until critical and high-risk findings are fixed.
-
-
-⸻
-
-
-Database Models   [✅ DONE — all 24 models in prisma/schema.prisma]
-Create models for:
-User
-Household
-HouseholdMember
-ChildProfile
-Placement
-Appointment
-Medication
-MedicationLog
-DailyCareLog
-Expense
-Receipt
-Document
-Contact
-Routine
-RoutineTask
-Checklist
-ChecklistItem
-LicensingRequirement
-TrainingHour
-Subscription
-Payment
-Invoice
-Plan
-AdminAuditLog
-SecurityAuditLog
-
-
-⸻
-
-
-Tech Stack   [✅ DONE]
-Use:
-Next.js
-TypeScript
-PostgreSQL
-Prisma
-Tailwind CSS
-NextAuth or secure authentication
-Stripe
-Zod validation
-Secure file storage
-Rate limiting middleware
-
-
-⸻
-
-
-Deliverables   [✅ DONE]
-Provide:
-Full project structure
-Database schema
-Authentication system
-Role-based permissions
-Foster care dashboard
-Child profile system
-Appointment calendar
-Document upload system
-Daily care logs
-Medication tracker
-Expense tracker
-Contact manager
-Routine/checklist system
-Licensing tracker
-Stripe payment system
-Subscriber dashboard
-Admin dashboard
-Security protections
-Cybersecurity audit report
-Setup instructions
-.env.example
-Basic tests
-
-
-⸻
-
-
-Acceptance Criteria   [✅ DONE — all criteria met]
-The project is complete when:
-Foster parents can create a household.
-Foster parents can create child profiles.
-Users can track appointments.
-Users can upload private documents securely.
-Users can log medications and daily care notes.
-Users can track expenses and receipts.
-Users can manage important contacts.
-Users can create routines and checklists.
-Users can track licensing requirements.
-Users can subscribe to paid plans.
-Stripe billing works correctly.
-Free users cannot access paid features.
-Babysitter users only see limited care instructions.
-Unauthorized users cannot view child data.
-Admin routes are protected.
-Cybersecurity audit is complete.
-SECURITY_AUDIT_REPORT.md exists.
-Critical and high-risk issues are fixed.
-App runs locally with no errors.
-
-
-⸻
-
-
-Build Instructions   [✅ DONE — every step below completed in order]
-Build in this order:
-Project setup
-Database schema
-Authentication
-Household system
-User roles and permissions
-Child profile management
-Appointments
-Document uploads
-Daily care logs
-Medication tracker
-Expense tracker
-Contact manager
-Routines and checklists
-Licensing tracker
-Stripe subscriptions
-Admin dashboard
-Security hardening
-Cybersecurity audit
-Final testing
-Start with the MVP first. Build step by step and verify each major feature before moving to the next one.
-
-
-
-
-
-1.	ADMIN PURPOSE 
-What to do:
-Create a secure control center where app owners, staff, moderators, managers, and support teams can manage the entire application.
-How to do it:
-The admin panel should allow authorized users to view users, manage settings, review activity, control permissions, handle reports, monitor payments, manage content, and audit system behavior.
-Expected output:
-One dashboard that controls the app without needing direct database access.
-==================================================
-2.	ADMIN USER ROLES 
-What to do:
-Create different admin permission levels.
-How to do it:
-Use role-based access control.
-Main roles:
-SUPER ADMIN
-Full access to everything.
-Can create other admins.
-Can change system settings.
-Can delete or suspend accounts.
-Can view logs and financial records.
-ADMIN
-Can manage users, content, reports, and daily operations.
-Cannot change critical system settings unless allowed.
-MANAGER
-Can view reports, approve actions, and supervise staff.
-Limited access to sensitive data.
-SUPPORT STAFF
-Can view user issues, tickets, account status, and basic user information.
-Cannot delete users or change system rules.
-MODERATOR
-Can approve, reject, flag, hide, or remove content.
-Can handle user reports.
-FINANCE ADMIN
-Can view payments, subscriptions, payouts, invoices, refunds, and revenue.
-READ-ONLY ADMIN
-Can view dashboards and reports only.
-Cannot make changes.
-==================================================
-3.	ADMIN LOGIN SYSTEM 
-What to do:
-Secure the admin area separately from normal user login.
-How to do it:
-Create a dedicated admin login page.
-Required features:
-Email and password login
-Two-factor authentication
-Password reset
-Login attempt limits
-Device/session tracking
-IP logging
-Forced logout option
-Session timeout
-Admin activity logging
-Expected output:
-Only trusted users can enter the admin system.
-==================================================
-4.	ADMIN DASHBOARD 
-What to do:
-Create a main dashboard that shows the health of the app.
-How to do it:
-Display the most important information immediately.
-Dashboard sections:
-Total users
-Active users
-New users today
-Suspended users
-Revenue
-Failed payments
-Open support tickets
-Pending approvals
-System errors
-Security alerts
-Server status
-Database status
-API status
-Recent admin actions
-Expected output:
-The admin can understand what is happening in the app in less than 30 seconds.
-==================================================
-5.	USER MANAGEMENT MODULE 
-What to do:
-Allow admins to manage app users.
-How to do it:
-Create a user table with search, filter, and action buttons.
-User information:
-Name
-Email
-Phone number
-Account status
-Role
-Signup date
-Last login
-Subscription status
-Payment status
-Verification status
-Warnings
-Notes
-Activity history
-Admin actions:
-View user profile
-Edit user information
-Reset password
-Suspend account
-Ban account
-Reactivate account
-Verify user
-Add internal note
-View login history
-View payment history
-Delete account only if allowed
-Expected output:
-Admins can solve user problems and control account access safely.
-==================================================
-6.	ADMIN MANAGEMENT MODULE 
-What to do:
-Allow Super Admins to manage other admins.
-How to do it:
-Create an admin user section.
-Features:
-Create admin
-Edit admin role
-Disable admin
-Force password reset
-Require 2FA
-View admin activity
-Limit permissions
-Remove admin access
-Expected output:
-The owner controls who can access the admin panel.
-==================================================
-7.	PERMISSION SYSTEM 
-What to do:
-Prevent every admin from having full access.
-How to do it:
-Use permissions attached to roles.
-Examples:
-users.view
-users.edit
-users.delete
-users.suspend
-payments.view
-payments.refund
-content.approve
-content.delete
-settings.update
-admins.create
-logs.view
-reports.export
-Expected output:
-Each staff member only sees and changes what they are allowed to.
-==================================================
-8.	CONTENT MANAGEMENT MODULE 
-What to do:
-Allow admins to manage app content.
-How to do it:
-Create sections for posts, pages, files, images, videos, products, lessons, rules, FAQs, or whatever the app uses.
-Admin actions:
-Create content
-Edit content
-Publish content
-Unpublish content
-Delete content
-Approve content
-Reject content
-Flag content
-Review reports
-Manage categories
-Manage tags
-Expected output:
-The app content can be controlled without touching the code.
-==================================================
-9.	REPORTS AND MODERATION MODULE 
-What to do:
-Allow admins to handle bad behavior, spam, violations, and user reports.
-How to do it:
-Create a report queue.
-Report details:
-Reported user
-Reporter
-Reason
-Content involved
-Date reported
-Status
-Assigned moderator
-Decision history
-Report status:
-Pending
-Under review
-Resolved
-Rejected
-Escalated
-Admin actions:
-Warn user
-Remove content
-Suspend user
-Ban user
-Dismiss report
-Escalate to Super Admin
-Expected output:
-The app has a clear safety and moderation system.
-==================================================
-10.	PAYMENT AND SUBSCRIPTION MODULE 
-What to do:
-Allow admins to monitor money-related activity.
-How to do it:
-Create a finance dashboard.
-Track:
-Payments
-Subscriptions
-Refunds
-Failed payments
-Invoices
-Payouts
-Coupons
-Free trials
-Plan upgrades
-Plan cancellations
-Admin actions:
-View payment history
-Cancel subscription
-Issue refund
-Apply coupon
-Extend trial
-Change plan
-Mark payment issue
-Export financial report
-Expected output:
-Admins can manage revenue and customer billing issues.
-==================================================
-11.	SUPPORT TICKET MODULE 
-What to do:
-Allow users to contact support and allow admins to respond.
-How to do it:
-Create a ticket system.
-Ticket fields:
-User
-Subject
-Message
-Priority
-Status
-Assigned staff
-Date created
-Last updated
-Attachments
-Internal notes
-Ticket status:
-Open
-Pending
-Waiting for user
-Resolved
-Closed
-Admin actions:
-Reply to user
-Assign ticket
-Escalate ticket
-Close ticket
-Add note
-Attach file
-Expected output:
-User problems are organized and tracked.
-==================================================
-12.	SETTINGS MODULE 
-What to do:
-Allow approved admins to change app behavior.
-How to do it:
-Create a system settings page.
-Settings examples:
-App name
-Logo
-Maintenance mode
-Signup enabled/disabled
-Email verification required
-Subscription plans
-Feature flags
-Notification settings
-Security rules
-API keys
-Default user role
-Terms and privacy links
-Expected output:
-The app can be adjusted without changing code.
-==================================================
-13.	ANALYTICS AND REPORTING MODULE 
-What to do:
-Give admins clear data about app performance.
-How to do it:
-Create reports and charts.
-Track:
-Daily active users
-Monthly active users
-Signups
-Revenue
-Retention
-Churn
-Most used features
-Least used features
-Conversion rate
-Support volume
-Error rate
-User growth
-Payment success rate
-Expected output:
-Admins can make decisions based on real data.
-==================================================
-14.	AUDIT LOG SYSTEM 
-What to do:
-Record every important admin action.
-How to do it:
-Save logs every time an admin changes something.
-Audit log should include:
-Admin name
-Action taken
-Target user or item
-Old value
-New value
-Date and time
-IP address
-Device info
-Examples:
-Admin suspended user
-Admin changed subscription
-Admin deleted post
-Admin issued refund
-Admin changed settings
-Expected output:
-You can trace who did what and when.
-==================================================
-15.	NOTIFICATION SYSTEM 
-What to do:
-Alert admins when important things happen.
-How to do it:
-Create internal notifications and optional email alerts.
-Admin alerts:
-Payment failed
-System error
-New report
-High-priority ticket
-Suspicious login
-Server issue
-User verification pending
-Refund requested
-Database backup failed
-Expected output:
-Admins do not miss critical events.
-==================================================
-16.	SECURITY ARCHITECTURE 
-What to do:
-Protect the admin panel from attacks.
-How to do it:
-Use strong security controls.
-Required security:
-HTTPS only
-Two-factor authentication
-Strong passwords
-Session expiration
-Role permissions
-IP logging
-Rate limiting
-CSRF protection
-XSS protection
-SQL injection protection
-Encrypted sensitive data
-Backup system
-Admin action logs
-No direct database editing
-Expected output:
-The admin system is secure and trustworthy.
-==================================================
-17.	DATABASE STRUCTURE 
-What to do:
-Create tables that support admin control.
-How to do it:
-Use a clean database design.
-Main tables:
-users
-id
-name
-email
-phone
-password_hash
-role
-status
-created_at
-updated_at
-last_login
-admin_users
-id
-user_id
-admin_role
-two_factor_enabled
-status
-created_at
-roles
-id
-name
-description
-permissions
-id
-name
-description
-role_permissions
-role_id
-permission_id
-audit_logs
-id
-admin_id
-action
-target_type
-target_id
-old_value
-new_value
-ip_address
-created_at
-support_tickets
-id
-user_id
-subject
-message
-priority
-status
-assigned_to
-created_at
-payments
-id
-user_id
-amount
-status
-provider
-transaction_id
-created_at
-subscriptions
-id
-user_id
-plan
-status
-start_date
-end_date
-reports
-id
-reporter_id
-reported_user_id
-reason
-status
-created_at
-notifications
-id
-user_id
-type
-message
-read_status
-created_at
-settings
-id
-key
-value
-updated_by
-updated_at
-==================================================
-18.	BACKEND ARCHITECTURE 
-What to do:
-Create backend services for admin actions.
-How to do it:
-Separate admin logic from normal app logic.
-Backend modules:
-Auth service
-User service
-Admin service
-Permission service
-Payment service
-Ticket service
-Report service
-Notification service
-Audit log service
-Settings service
-Analytics service
-Expected output:
-The backend stays organized and easy to scale.
-==================================================
-19.	FRONTEND ADMIN PANEL 
-What to do:
-Build a clean admin interface.
-How to do it:
-Create pages for each admin module.
-Admin pages:
-Login
-Dashboard
-Users
-Admins
-Roles
-Permissions
-Content
-Reports
-Payments
-Subscriptions
-Support Tickets
-Notifications
-Analytics
-Audit Logs
-Settings
-System Health
-Expected output:
-Admins can control the app from a simple web interface.
-==================================================
-20.	API STRUCTURE 
-What to do:
-Create secure admin API routes.
-How to do it:
-Protect every admin route with authentication and permission checks.
-Example routes:
-POST /admin/login
-GET /admin/dashboard
-GET /admin/users
-GET /admin/users/:id
-PATCH /admin/users/:id
-POST /admin/users/:id/suspend
-POST /admin/users/:id/ban
-GET /admin/payments
-POST /admin/refunds
-GET /admin/reports
-PATCH /admin/reports/:id
-GET /admin/tickets
-PATCH /admin/tickets/:id
-GET /admin/audit-logs
-GET /admin/settings
-PATCH /admin/settings
-Expected output:
-The admin frontend communicates safely with the backend.
-==================================================
-21.	SYSTEM HEALTH MODULE 
-What to do:
-Allow admins to monitor technical performance.
-How to do it:
-Show app infrastructure status.
-Track:
-Server uptime
-Database health
-API response time
-Error logs
-Memory usage
-CPU usage
-Storage usage
-Email service status
-Payment provider status
-Backup status
-Expected output:
-Admins know when the system has a technical problem.
-==================================================
-22.	BACKUP AND RECOVERY 
-What to do:
-Protect the app from data loss.
-How to do it:
-Create automatic backups.
-Backup rules:
-Daily database backup
-Weekly full backup
-Encrypted backup storage
-Backup success notification
-Restore testing
-Emergency recovery process
-Expected output:
-The app can recover if something goes wrong.
-==================================================
-23.	ADMIN WORKFLOW 
-Normal daily admin workflow:
-1.	Login with 2FA 
-2.	Check dashboard alerts 
-3.	Review new users 
-4.	Handle pending reports 
-5.	Answer support tickets 
-6.	Check failed payments 
-7.	Review system errors 
-8.	Export reports if needed 
-9.	Review audit logs 
-10.	Logout securely 
-==================================================
-24.	RECOMMENDED TECH STACK 
-Frontend:
-React
-Next.js
-Tailwind CSS
-ShadCN UI
-Backend:
-Node.js with NestJS
-or Django
-or Laravel
-or FastAPI
-Database:
-PostgreSQL
-Authentication:
-JWT
-Session cookies
-2FA
-Payments:
-Stripe
-Storage:
-AWS S3
-Cloudflare R2
-Email:
-SendGrid
-Resend
-Mailgun
-Monitoring:
-Sentry
-Grafana
-Prometheus
-Hosting:
-AWS
-DigitalOcean
-Render
-Railway
-Vercel
-==================================================
-25.	FINAL ADMIN ARCHITECTURE SUMMARY 
-The admin system should have:
-Secure admin login
-Role-based permissions
-Main dashboard
-User management
-Admin management
-Content management
-Reports and moderation
-Payments and subscriptions
-Support tickets
-System settings
-Analytics
-Audit logs
-Notifications
-Security controls
-Database backup
-System health monitoring
-Main goal:
-The admin panel should let you control the whole app safely, without touching the database directly.
-
+PART 4 — FUTURE / OUT-OF-SCOPE VISION (multi-agency platform)
+==================================================================
+The notes below describe a LARGER product than the shipped private foster-
+parent app: a multi-tenant agency platform with case-worker accounts, agency
+administration and AI. These are tracked as future scope, not built.
+
+⬜ Agency as a tenant — managing multiple foster-care organizations.
+⬜ CASE WORKER role — create/update child records across families, search/
+   match/approve/transfer/end placements, maintain case records, monitor
+   compliance, contact biological family. (Today only the foster parent's own
+   household is visible; no cross-family case-worker access exists.)
+⬜ AGENCY ADMIN role — approve/reject foster-parent applications, oversee all
+   placements, override placement decisions, process reimbursements/stipends,
+   generate state/federal/outcome reports, manage workflows & templates.
+   (The "Agency" plan exists as a billing tier; the full agency case-management
+   workflow is not built.)
+⬜ Placement lifecycle — placement notifications, accept/decline requests,
+   placement matching, transfer, history. (Beyond the current child-profile
+   placement status field.)
+⬜ Incident management workflow — foster parent reports → case worker
+   investigates → agency escalates/closes/reports to state. (Today incidents
+   are free-text in daily care logs; no formal workflow.)
+⬜ AI features — placement-matching recommendations, missing-document alerts,
+   compliance monitoring, risk scoring, report generation, onboarding assistant.
+⬜ Reimbursement/stipend financials & tax forms for foster parents.
+
+✅ GOLDEN RULE (privacy principle) — already enforced today:
+   A foster parent sees only what's needed to care for their child; no one,
+   including administrators, can view passwords, delete audit history, or
+   bypass legal/privacy protections. Foster-care data is highly sensitive
+   child-welfare information and is protected accordingly.
+
+
+==================================================================
+PART 5 — SECURITY THREAT MODEL & DEFENSE STATUS
+==================================================================
+(Sorted from the appended attack taxonomy. Each threat is marked with the
+app's current defense: ✅ defended in app code · 🟡 partial / needs an option
+enabled · ⬜ operational / infrastructure (not app code) · ➖ not applicable.)
+Verified against: middleware CSP, next.config security headers, lib/authz,
+lib/auth, lib/request (CSRF), lib/storage, lib/crypto, Stripe webhook handling.
+
+------------------------------------------------------------------
+PRIORITY DEFENSES FOR A FOSTER-CARE APP (highest first)
+------------------------------------------------------------------
+ 1. Broken access control ........ ✅ household-scoped RBAC, no admin bypass
+ 2. IDOR ......................... ✅ every query joins householdId; 404 cross-tenant
+ 3. SQL injection ................ ✅ Prisma parameterized; no raw SQL
+ 4. XSS .......................... ✅ React escaping + nonce CSP + email escapeHtml
+ 5. CSRF ......................... ✅ Origin/Referer check (no fail-open) on mutations
+ 6. Account takeover ............. ✅ bcrypt(12), lockout, rate limit, TOTP 2FA, forced logout
+ 7. API authorization ............ ✅ per-route capability + admin permission matrix
+ 8. File upload .................. ✅ MIME+magic-byte, size cap, private store, authed download
+                                   🟡 no malware/AV scan
+ 9. Insider threats .............. ✅ admins can't see child data/passwords; immutable audit
+10. Cloud misconfiguration ....... ⬜ deploy-time (private buckets/DB, least-priv IAM)
+11. Data leaks ................... ✅ generic errors, private storage, secrets in env
+12. Ransomware ................... ⬜ operational (backups + server hardening)
+13. DDoS ........................ ⬜ operational (CDN/WAF, e.g. Cloudflare)
+14. Supply chain ................ 🟡 minimal pinned deps; needs audit + Dependabot
+15. Social engineering .......... 🟡 2FA blunts phished passwords; rest is process
+
+------------------------------------------------------------------
+FULL THREAT TAXONOMY → DEFENSE
+------------------------------------------------------------------
+1.  Authentication attacks ✅
+    Brute force / spraying / credential stuffing → account lockout + login
+    rate limit (in-memory, optional Redis) + failed-login tracking. Session
+    hijack/fixation → signed httpOnly JWT, session timeout, tokenVersion
+    forced-logout. JWT forgery → signed w/ NEXTAUTH_SECRET; role/tokenVersion
+    re-read from DB each request. MFA → TOTP 2FA (QR + backup codes).
+    Reset/magic-link abuse → hashed single-use 1h tokens, anti-enumeration.
+    (OAuth ➖ — credentials provider only.)
+
+2.  Authorization attacks ✅
+    Privilege escalation (H/V), IDOR/BOLA, broken access control, forced
+    browsing, API permission bypass → deny-by-default capability matrix,
+    household-scoped queries with no admin bypass, requireUser reads role
+    fresh, admin permission matrix enforced per route.
+
+3.  Injection attacks ✅
+    SQLi → Prisma parameterized. Command/OS → no shell exec from input.
+    Email-header/CRLF → email sent via Resend JSON API (no raw SMTP headers).
+    NoSQL/LDAP/XPath/XML ➖ — not used (PostgreSQL only).
+
+4.  Cross-site scripting (XSS) ✅
+    Stored/reflected/DOM → React auto-escaping, strict nonce CSP (script-src
+    'self' 'nonce' 'strict-dynamic'), object-src 'none', base-uri 'self';
+    email HTML escaped (escapeHtml).
+
+5.  CSRF ✅
+    assertSameOrigin (trusted Origin, else trusted Referer, else 403 — no
+    fail-open) on every mutation; SameSite cookies; CSP form-action 'self'.
+
+6.  API attacks ✅ 🟡
+    BOLA/function-level → scoped + permission matrix. Mass assignment → Zod
+    whitelists fields. Excessive data exposure → explicit select (no hashes /
+    child data). 🟡 rate-limit is per-instance unless Upstash Redis is enabled.
+    GraphQL ➖ (REST only).
+
+7.  Business-logic attacks ✅ 🟡
+    Payment/subscription bypass → entitlements derive ONLY from signed Stripe
+    webhooks (idempotent/dedup). Refunds/credits → admin-only + audited.
+    Coupons/trials → enforced by Stripe. 🟡 plan-limit checks can race under
+    concurrency (low impact).
+
+8.  File-upload attacks ✅ 🟡
+    Web shell/executable/polyglot/type-bypass → MIME + magic-byte validation,
+    size pre-check, files stored OUTSIDE the web root and served only via an
+    authenticated, ownership-checked route with attachment + nosniff.
+    🟡 no malware/AV scanning (add ClamAV / a scanning API for untrusted files).
+
+9.  Denial of service (DoS) 🟡 ⬜
+    App-layer → rate limiting + bounded body/field sizes. ⬜ true DoS
+    resilience (slowloris, floods) belongs to a CDN/WAF + infra.
+
+10. Distributed DoS (DDoS) ⬜
+    Operational — front with a CDN/WAF (Cloudflare/Fastly); not app code.
+
+11. Session attacks ✅
+    Hijack/fixation/prediction → signed httpOnly SameSite JWT, rotation on
+    privilege change, tokenVersion revocation, session timeout, AND a
+    per-device session list with selective revoke (UserSession rows; a revoked
+    device fails requireUser on its next request). "Sign out everywhere" also
+    revokes all rows. (/account → Active sessions.)
+
+12. Browser-based attacks ✅
+    Clickjacking → X-Frame-Options: DENY + CSP frame-ancestors 'none'. MIME
+    sniffing → X-Content-Type-Options: nosniff. Referrer leakage →
+    Referrer-Policy. Powered-by hidden; Permissions-Policy locks camera/mic/geo.
+
+13. DNS attacks ⬜
+    Operational — registrar lock, DNSSEC, monitor for sub-domain takeover.
+
+14. Email-based attacks 🟡 ⬜
+    App → escaped HTML, rate-limited reset/verification sends, anti-enumeration.
+    ⬜ SPF/DKIM/DMARC are DNS records to set for the sending domain.
+
+15. Supply-chain attacks 🟡
+    Minimal, version-pinned dependencies (lockfile); the QR encoder added is a
+    single zero-dependency package. 🟡 enable Dependabot / `npm audit` in CI and
+    review the existing transitive advisories (Next.js tree).
+
+16. Cloud attacks ⬜
+    Deploy-time — private object storage (no public buckets), non-public DB,
+    least-privilege IAM, no container privilege. App keeps S3 keys private +
+    validates storage keys.
+
+17. Database attacks ✅ 🟡
+    Enumeration/extraction → parameterized access, least-privilege app role,
+    AES-256-GCM field encryption for sensitive child/medical fields + 2FA secret.
+    🟡 backup encryption + DB-credential rotation are operational.
+
+18. Cryptographic attacks ✅ 🟡
+    AES-256-GCM, bcrypt(12), CSPRNG (crypto.randomBytes), HMAC-signed tokens,
+    HSTS (prod). 🟡 ENCRYPTION_KEY must be backed up + rotated off-app; TLS/cert
+    management is operational.
+
+19. Malware attacks ⬜
+    Operational — server hardening, EDR/AV, offline backups for recovery.
+    (Upload AV scanning is the app-side piece — see §8.)
+
+20. Insider threats ✅ 🟡
+    Admins cannot read child data or passwords; least privilege; every admin
+    action audited to an immutable log; no direct DB editing. 🟡 SUPER_ADMIN is
+    powerful (mitigated: no child-data/password/decryption access; TOTP step-up
+    for secrets).
+
+21. Social engineering 🟡
+    2FA limits damage from phished passwords; support tickets warn against
+    sharing PII. Rest is people/process (verification scripts, staff training).
+
+22. Mobile-app attacks ➖
+    No native mobile app today (responsive web only). Revisit if one ships.
+
+23. Infrastructure attacks ⬜
+    Operational — patching, firewall, least exposed services, config hardening.
+
+24. Bot attacks 🟡
+    Rate limiting + signup toggle + email verification cut fake/abusive signups.
+    🟡 no CAPTCHA / bot-scoring on register & login (add if abuse appears).
+
+25. Data-exposure attacks ✅ 🟡
+    Generic error responses (no stack traces), private storage, no debug output
+    in prod, secrets in env, audit metadata carries no child PII. 🟡 backup/log
+    storage privacy is operational.
+
+------------------------------------------------------------------
+SUGGESTED "LITTLE BY LITTLE" SECURITY WORKLIST (app-code items)
+------------------------------------------------------------------
+✅ Per-device session list + selective revoke (§11 / Admin §3) — DONE.
+⬜ Upload malware/AV scanning hook for untrusted files (§8).
+⬜ Optional CAPTCHA / bot-scoring on register + login (§24).
+⬜ Turn on Dependabot + `npm audit` gate; clear transitive advisories (§15).
+⬜ Enforce distributed (Redis) rate limiting in production so limits hold
+   across instances (§6).
+(Operational items — SPF/DKIM/DMARC, CDN/WAF for DoS/DDoS, backups, DNSSEC,
+cloud/IAM hardening — live in DEPLOYMENT.md, not app code.)
+
+
+==================================================================
+SUMMARY
+==================================================================
+The shipped product — a private, secure foster-parent app plus an 11-tab
+platform-admin console — is COMPLETE and verified (build · typecheck · 63
+tests · security audit PASS).
+
+✅ DONE
+• Core features 1–9 (profiles, appointments, documents, care logs,
+  medications, expenses, contacts, routines, licensing).
+• User roles (Foster Parent / Co-Parent / Babysitter / Admin).
+• Stripe payments: 4 plans, monthly/annual, promo codes, portal, invoices,
+  grace periods, signature-verified webhooks.
+• Two-factor auth (TOTP) with a scannable QR code (generated locally — the
+  secret never leaves the server) + backup codes.
+• Security & privacy + cybersecurity audit (PASS); threat model in PART 5.
+• Per-device active-session list with selective revoke (§3, threat §11).
+• Admin platform: 22 of 25 spec sections implemented — full admin CAN-do list
+  (create/edit/verify/reset/force-logout users, soft-delete+restore, in-app
+  refunds + credits, CSV export) and every MUST-NOT restriction enforced.
+
+🟡 PARTIAL (works; refinement, an option to enable, or ops)
+• Separate admin-only login page (admins use hardened /login; 2FA+RBAC) (§3).
+• Plan-CRUD UI (plans live in code + Stripe config) (§10).
+• Distributed (Redis) rate limiting — optional, off by default (threat §6).
+• Upload AV scanning, bot/CAPTCHA, Dependabot — see PART 5 worklist.
+• Backup & recovery — operational runbook, not app code (§22).
+
+➖ NOT APPLICABLE
+• Content management (§8) / Reports-moderation (§9) — no public UGC.
+• Native mobile-app threats (§22) — responsive web only.
+
+⬜ FUTURE / OUT OF SCOPE
+• PART 4 — multi-agency platform, Case Worker accounts, placement lifecycle,
+  formal incident workflow, AI features.
+• Operational/infra security (PART 5: DDoS/CDN, DNS, cloud/IAM, malware/EDR).
+
+Deferred by choice: Next.js 14→16 major upgrade (staying on patched 14.2.35).
+Pre-launch owner items in DEPLOYMENT.md (managed Postgres + backups, TLS, cron,
+live Stripe/Resend/Redis/monitoring, counsel review of /privacy + /terms,
+remove demo accounts after the UI check).
+==================================================================

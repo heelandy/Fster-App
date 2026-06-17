@@ -119,6 +119,10 @@ export function SupportClient() {
           <div>
             <label className="label" htmlFor="message">How can we help?</label>
             <textarea id="message" name="message" required rows={5} className="input" />
+            <p className="mt-1 text-xs text-amber-700">
+              🔒 Support staff can read tickets. Please describe the issue generally and avoid including a child’s
+              full name, case number, or medical details.
+            </p>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={busy} className="btn-primary">{busy ? 'Submitting…' : 'Submit ticket'}</button>

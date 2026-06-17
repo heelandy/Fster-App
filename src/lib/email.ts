@@ -134,6 +134,21 @@ export function sendInvite(to: string, householdName: string, link: string): Pro
   });
 }
 
+/** Sent when an admin provisions a new account: the user sets their own password. */
+export function sendAccountSetup(to: string, link: string): Promise<SendResult> {
+  const safeLink = escapeHtml(link);
+  return deliver({
+    to,
+    subject: 'Set up your Foster Care HMS account',
+    html: emailLayout(
+      'Welcome — set your password',
+      `<p style="font-size:14px;line-height:1.6">An account has been created for you on Foster Care HMS. Click below to choose a password and finish setting up. This link expires in 24 hours.</p>
+       <p style="margin:24px 0"><a href="${safeLink}" style="background:#b45309;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;display:inline-block">Set my password</a></p>
+       <p style="font-size:12px;color:#64748b;word-break:break-all">Or paste this link into your browser:<br/>${safeLink}</p>`,
+    ),
+  });
+}
+
 export function sendVerificationEmail(to: string, link: string): Promise<SendResult> {
   const safeLink = escapeHtml(link);
   return deliver({

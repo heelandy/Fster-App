@@ -30,10 +30,12 @@ ever resolved together with the session's `householdId`.
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/api/account/password` | Change password. Body `{currentPassword,newPassword}` (verifies current). |
-| POST | `/api/account/2fa/setup` | Begin TOTP enrollment; returns `{secret, otpauthUri}` (not yet enabled). |
+| POST | `/api/account/2fa/setup` | Begin TOTP enrollment; returns `{secret, otpauthUri, qrDataUrl}`. `qrDataUrl` is a locally-generated SVG data URL (the secret never leaves the server). Not yet enabled. |
 | POST | `/api/account/2fa/enable` | Confirm TOTP `{code}`; activates 2FA and returns one-time `backupCodes`. |
 | POST | `/api/account/2fa/disable` | Disable 2FA. Body `{password}` (re-auth required). |
-| POST | `/api/account/logout-all` | "Sign out of all devices" — bumps `tokenVersion`, invalidating every JWT incl. the current one. |
+| GET | `/api/account/sessions` | List the user's active device sessions (device label, IP, last-seen; current device flagged). |
+| DELETE | `/api/account/sessions/[id]` | Revoke one device session (own sessions only); that device fails auth on its next request. |
+| POST | `/api/account/logout-all` | "Sign out of all devices" — bumps `tokenVersion` (invalidates every JWT incl. the current one) and revokes all session rows. |
 
 ## Support tickets
 | Method | Path | Auth | Notes |
@@ -112,8 +114,12 @@ ever resolved together with the session's `householdId`.
 | Method | Path | Permission | Notes |
 |---|---|---|---|
 | GET | `/api/admin/stats` | `users.view` | Aggregate counts only (no child records): users, revenue, payment issues, security 24h. |
-| GET | `/api/admin/users` | `users.view` | Account metadata + `?q=` search. No password hashes, no child data. |
-| PATCH/DELETE | `/api/admin/users/[id]` | per-action | suspend/reactivate/ban/unban/unlock/note/setAdminRole (per-action permission) / delete (`users.delete`). Audited old→new; blocks self-suspend/ban/delete. |
+| GET/POST | `/api/admin/users` | `users.view` / `users.edit` | List (account metadata + `?q=` search; no hashes/child data) / **create a user** (emails a set-password link; `adminRole` also needs `admins.manage`). |
+| PATCH/DELETE | `/api/admin/users/[id]` | per-action | suspend/reactivate/ban/unban/unlock/note/setAdminRole/**verify**/**forceLogout**/**sendPasswordReset**/**editProfile**/**restore** (per-action permission) / **soft-delete** (`users.delete` — deactivates + tombstones, recoverable). Audited old→new; blocks self-suspend/ban/forceLogout/delete. |
+| GET | `/api/admin/payments` | `payments.view` | Recent payments (billing metadata only — never card data) for the finance view. |
+| POST | `/api/admin/payments/[id]/refund` | `payments.refund` | Refund via Stripe (resolves the invoice's payment_intent/charge); full or partial. Audited. |
+| POST | `/api/admin/payments/credit` | `payments.refund` | Apply an account credit to a household's Stripe customer balance. Audited. |
+| GET | `/api/admin/reports/export` | `reports.export` | CSV export (`?type=users\|subscriptions\|revenue`). Account/billing metadata only. |
 | GET/PATCH | `/api/admin/settings` | `settings.update` | Read / write system flags (maintenance, signup, app name). |
 | GET/PATCH | `/api/admin/notifications` | `users.view` | List / mark read (one or all). |
 | GET | `/api/admin/tickets` | `support.manage` | List tickets (`?status=` filter). |
@@ -126,5 +132,6 @@ ever resolved together with the session's `householdId`.
 | GET/POST | `/api/admin/integrations` | `admins.manage` + step-up | Read/write Stripe + email config (secrets encrypted, masked in responses). |
 | POST | `/api/admin/integrations/stripe/webhook` | `admins.manage` + step-up | Registers the Stripe webhook endpoint via the Stripe API and stores its signing secret. |
 
-> Refunds remain delegated to the Stripe Dashboard. See [ADMIN.md](./ADMIN.md) for the full
-> spec-to-implementation map (all 25 admin sections).
+> Refunds and account credits are now issued **in-app** via Stripe (the calls above) and
+> mirrored in the audit log. See [ADMIN.md](./ADMIN.md) for the full spec-to-implementation
+> map (all 25 admin sections).

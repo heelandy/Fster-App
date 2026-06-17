@@ -2,7 +2,7 @@
 
 A secure, private, mobile-friendly web application for foster parents to manage placement information, appointments, documents, daily routines, expenses, contacts, medications, and licensing requirements — built privacy-first for real foster-parent daily use.
 
-> **Status:** MVP **+ full admin platform + production hardening** complete. Build ✅ · Typecheck ✅ · Tests ✅ (55) · Security audit ✅ (see [`SECURITY_AUDIT_REPORT.md`](./SECURITY_AUDIT_REPORT.md)). Going live? See [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+> **Status:** MVP **+ full admin platform + production hardening** complete. Build ✅ · Typecheck ✅ · Tests ✅ (63) · Security audit ✅ (see [`SECURITY_AUDIT_REPORT.md`](./SECURITY_AUDIT_REPORT.md)). Going live? See [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
 ---
 
@@ -21,11 +21,11 @@ A secure, private, mobile-friendly web application for foster parents to manage 
 | **Licensing & compliance** | Training hours, inspections, background checks, renewals with due-date tracking. |
 | **Roles** | Foster Parent, Co-Parent (limitable), Babysitter/Respite (limited care view), Admin. |
 | **Billing** | Stripe Free/Family/Pro/Agency plans, monthly/annual, promo codes, portal, invoices, grace periods. |
-| **Account & security** | Self-service **password change**, **2FA (TOTP)** with backup codes, "sign out of all devices", and a **forgot-password** email flow. |
+| **Account & security** | Self-service **password change**, **2FA (TOTP)** with a **scannable QR code** (generated locally) + backup codes, a **per-device active-session list** with selective revoke, "sign out of all devices", and a **forgot-password** email flow. |
 | **Support** | In-app **support tickets** — users open threads, staff reply and set status. |
 | **Household invites** | Invite co-parents/babysitters by **email**; new users get a tokenised join link; pending invites are manageable. |
 | **Reminders** | Appointment reminders emailed via a scheduled **cron endpoint** (`/api/cron/reminders`). |
-| **Admin platform** | 10-tab console: overview, **user management** (suspend/ban/roles), **support tickets**, **analytics** (DAU/MAU/churn charts), notifications, **settings**, **integrations**, **system health**, security + admin audit logs. 7 staff roles with granular permissions. Admins cannot view private child data. |
+| **Admin platform** | 11-tab console: overview, **user management** (create/edit/suspend/ban/verify/force-logout/send-reset/roles, **soft-delete + restore**), **support tickets**, **analytics** (DAU/MAU/churn charts), **finance** (in-app Stripe **refunds** + **account credits** + **CSV report export**), notifications, **settings**, **integrations**, **system health**, security + admin audit logs. 7 staff roles with granular permissions. Admins cannot view private child data. |
 | **SuperAdmin Integrations** | TOTP‑gated page to configure **live Stripe keys/prices** and **register the Stripe webhook** from the UI (no code/env edits), plus email settings. Config resolves DB‑first with env fallback; secrets encrypted at rest. |
 | **Email verification** | Optional (admin‑toggleable) confirm‑your‑email flow at signup with resend. |
 | **Pluggable infra** | File storage `local` **or S3/R2**; optional **Redis** distributed rate limiting on credential endpoints; optional **error‑reporting** webhook; production **config‑validation** warnings in the System tab. |

@@ -161,12 +161,36 @@ export const authOptions: NextAuthOptions = {
         });
         await logSecurity({ actorId: user.id, event: 'LOGIN_SUCCESS', metadata: { email } });
 
+        // Record a per-device session (the JWT will carry its id as `sid`), so the
+        // user can list and revoke individual devices. Prune long-dead rows first
+        // to bound growth (90-day-idle or already-revoked sessions).
+        let userAgent = 'unknown';
+        try { userAgent = getClientInfo().userAgent; } catch { /* headers() unavailable */ }
+        await prisma.userSession.deleteMany({
+          where: {
+            userId: user.id,
+            OR: [
+              { revokedAt: { not: null } },
+              { lastSeenAt: { lt: new Date(Date.now() - 90 * 86_400_000) } },
+            ],
+          },
+        });
+        const sess = await prisma.userSession.create({
+          data: {
+            userId: user.id,
+            ip: ip === 'unknown' ? null : ip,
+            userAgent: userAgent === 'unknown' ? null : userAgent.slice(0, 400),
+          },
+          select: { id: true },
+        });
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.globalRole as 'USER' | 'ADMIN',
           tokenVersion: user.tokenVersion,
+          sid: sess.id,
         };
       },
     }),
@@ -177,6 +201,7 @@ export const authOptions: NextAuthOptions = {
         token.uid = (user as { id: string }).id;
         token.role = (user as { role: 'USER' | 'ADMIN' }).role;
         token.tv = (user as { tokenVersion: number }).tokenVersion;
+        token.sid = (user as { sid?: string }).sid;
       }
       return token;
     },
@@ -185,6 +210,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.uid as string;
         session.user.role = token.role as 'USER' | 'ADMIN';
         session.user.tokenVersion = (token.tv as number) ?? 0;
+        session.user.sid = token.sid as string | undefined;
       }
       return session;
     },

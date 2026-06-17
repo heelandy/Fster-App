@@ -136,20 +136,42 @@ export function can(ctx: Pick<HouseholdContext, 'role' | 'permissions'>, cap: Ca
 export async function requireUser() {
   const session = await auth();
   if (!session?.user?.id) throw Errors.unauthorized();
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true, email: true, name: true, globalRole: true, adminRole: true,
-      isActive: true, isBanned: true, tokenVersion: true, emailVerifiedAt: true,
-    },
-  });
-  if (!user || !user.isActive || user.isBanned) throw Errors.unauthorized();
+  const sid = session.user.sid;
+  const [user, sess] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true, email: true, name: true, globalRole: true, adminRole: true,
+        isActive: true, isBanned: true, tokenVersion: true, emailVerifiedAt: true,
+        deletedAt: true,
+      },
+    }),
+    sid
+      ? prisma.userSession.findUnique({
+          where: { id: sid },
+          select: { id: true, userId: true, revokedAt: true, lastSeenAt: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  // A soft-deleted, deactivated, or banned account loses access immediately.
+  if (!user || !user.isActive || user.isBanned || user.deletedAt) throw Errors.unauthorized();
   // Forced logout: a password reset or admin "sign out everywhere" bumps the
   // user's tokenVersion, instantly invalidating every previously issued JWT.
   if ((session.user.tokenVersion ?? 0) !== user.tokenVersion) throw Errors.unauthorized();
+  // Per-device revocation: if this token names a session row, it must exist,
+  // belong to the user, and not be revoked. Tokens issued before this feature
+  // carry no sid and skip this check (still governed by tokenVersion above).
+  if (sid) {
+    if (!sess || sess.userId !== user.id || sess.revokedAt) throw Errors.unauthorized();
+    // Throttle lastSeen writes to at most once / 5 min (cheap liveness signal).
+    if (Date.now() - sess.lastSeenAt.getTime() > 5 * 60_000) {
+      prisma.userSession.update({ where: { id: sid }, data: { lastSeenAt: new Date() } }).catch(() => {});
+    }
+  }
   return {
     id: user.id, email: user.email, name: user.name, role: user.globalRole,
     adminRole: user.adminRole, emailVerifiedAt: user.emailVerifiedAt,
+    sessionId: sid,
   };
 }
 

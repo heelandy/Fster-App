@@ -173,6 +173,7 @@ model User {
   // Bumped to invalidate every existing session (password reset / forced logout).
   tokenVersion  Int        @default(0)
   emailVerifiedAt DateTime? // set when the user confirms their email address
+  deletedAt     DateTime? // admin soft-delete: blocks login, record retained for recovery
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -184,8 +185,26 @@ model User {
   emailVerifications EmailVerificationToken[]
   supportTickets  SupportTicket[]
   supportMessages SupportMessage[]   @relation("SupportAuthor")
+  sessions        UserSession[]
 
   @@index([email])
+}
+
+/// One row per signed-in device/browser, enabling a per-device session list and
+/// selective revocation. The JWT carries this row's id (sid); requireUser rejects
+/// a token whose session row is missing or revoked. Complements the global
+/// User.tokenVersion ("sign out everywhere").
+model UserSession {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId])
 }
 
 model Household {

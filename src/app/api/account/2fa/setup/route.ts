@@ -4,6 +4,7 @@ import { handle, json, Errors } from '@/lib/http';
 import { mutationGuard } from '@/lib/api';
 import { RateLimits } from '@/lib/rate-limit';
 import { generateTotpSecret, otpauthUri } from '@/lib/totp';
+import { qrSvgDataUrl } from '@/lib/qr';
 
 export const runtime = 'nodejs';
 
@@ -35,6 +36,7 @@ export function POST() {
       data: { twoFactorSecret: secret, twoFactorEnabledAt: null },
     });
 
-    return json({ secret, otpauthUri: otpauthUri(secret, user.email ?? user.id) });
+    const uri = otpauthUri(secret, user.email ?? user.id);
+    return json({ secret, otpauthUri: uri, qrDataUrl: qrSvgDataUrl(uri) });
   });
 }

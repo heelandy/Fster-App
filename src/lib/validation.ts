@@ -257,3 +257,40 @@ export const acceptInviteSchema = z.object({
   name: optionalShort,
   password: password.optional(),
 });
+
+// ── Admin: user management actions ──
+const ADMIN_ROLE_VALUES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SUPPORT', 'MODERATOR', 'FINANCE_ADMIN', 'READ_ONLY'] as const;
+
+// Single-record actions on /api/admin/users/[id]. `value` carries the note or
+// admin-role string; `name`/`email` are only used by the editProfile action.
+export const adminUserActionSchema = z.object({
+  action: z.enum([
+    'suspend', 'reactivate', 'ban', 'unban', 'unlock', 'note', 'setAdminRole',
+    'verify', 'forceLogout', 'sendPasswordReset', 'editProfile', 'restore',
+  ]),
+  value: z.string().max(2000).optional(),
+  name: z.string().trim().max(200).optional(),
+  email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()).optional(),
+});
+
+// Admin-created account. No password is set by the admin — the new user receives
+// a set-password email. An optional adminRole provisions staff accounts.
+export const adminCreateUserSchema = z.object({
+  name: shortText,
+  email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
+  householdName: optionalShort,
+  adminRole: z.enum(ADMIN_ROLE_VALUES).optional(),
+});
+
+// ── Admin: finance ──
+export const adminRefundSchema = z.object({
+  // Omit amountCents for a full refund; supply it for a partial refund.
+  amountCents: z.coerce.number().int().min(1).max(100_000_00).optional(),
+  reason: z.enum(['duplicate', 'fraudulent', 'requested_by_customer']).optional(),
+});
+
+export const adminCreditSchema = z.object({
+  householdId: z.string().cuid(),
+  amountCents: z.coerce.number().int().min(1).max(100_000_00),
+  note: z.string().trim().max(500).optional(),
+});
