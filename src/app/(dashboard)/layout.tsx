@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireHousehold, requireUser, can } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
+import { findAgencyMembership } from '@/lib/agency';
 import { planHasFeature } from '@/lib/plans';
 import { isFlagOn } from '@/lib/settings';
 import { DashboardNav, type NavItem } from '@/components/dashboard-nav';
@@ -93,6 +94,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   items.push({ href: '/support', label: 'Support', icon: '💬' });
   items.push({ href: '/account', label: 'Account', icon: '👤' });
   if (ctx.globalRole === 'ADMIN') items.push({ href: '/admin', label: 'Admin', icon: '⚙️' });
+  // Agency staff get a link to the separate oversight portal.
+  if (await findAgencyMembership(ctx.userId)) items.push({ href: '/agency', label: 'Agency Portal', icon: '🏢' });
 
   // Homes this user belongs to — powers the multi-home switcher.
   const homeRows = await prisma.householdMember.findMany({

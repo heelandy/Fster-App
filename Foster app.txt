@@ -6,24 +6,27 @@ placements, appointments, documents, routines, expenses, contacts,
 medications and licensing — plus a full platform-admin console.
 
 Build verified: Prisma schema valid · Next.js production build passing ·
-TypeScript typecheck passing · 61 unit tests passing · cybersecurity audit
+TypeScript typecheck passing · 66 unit tests passing · cybersecurity audit
 PASS (SECURITY_AUDIT_REPORT.md). See README.md / DEPLOYMENT.md.
 
 Milestones:  Core app .......... 2026-06-15
              Admin platform .... 2026-06-16
              Finance + admin user-management batch .... 2026-06-17
+             Agency portal + case-worker roles .... 2026-06-19
 
 LEGEND:  ✅ done   🟡 partial   ➖ not applicable to this product
          ⬜ not built (future / larger-scope vision)
 
-This document is organized in five parts, with every requirement listed
+This document is organized in seven parts, with every requirement listed
 once and marked with its status:
 
   PART 1 — Core product (the foster-parent app)
   PART 2 — Admin platform (the 25-section admin spec)
   PART 3 — Admin capabilities, restrictions & role tiers (consolidated)
-  PART 4 — Future / out-of-scope (multi-agency + case-worker + AI vision)
+  PART 4 — Future / out-of-scope vision (incident workflow + AI)
   PART 5 — Security threat model & defense status
+  PART 6 — Billing capabilities & status
+  PART 7 — Agency & staff roles (multi-tenant agency portal)
   SUMMARY
 
 
@@ -281,9 +284,10 @@ System · Security log · Admin log.
     reports/export, tickets, analytics, health, settings, notifications, audit,
     step-up, integrations.
 
-21. System health module ✅ 🟡
-    DB latency, storage usage, memory, uptime, integration status, config
-    warnings. 🟡 CPU/uptime are process-level (no external infra metrics).
+21. System health module ✅
+    DB latency, storage usage, memory, uptime, CPU% + cores + load avg,
+    integration status, and config-validation warnings (incl. placeholder/
+    invalid Stripe & email keys). Process-level metrics (no external APM).
 
 22. Backup & recovery 🟡
     Operational, documented in DEPLOYMENT.md (managed Postgres backups /
@@ -374,19 +378,22 @@ The notes below describe a LARGER product than the shipped private foster-
 parent app: a multi-tenant agency platform with case-worker accounts, agency
 administration and AI. These are tracked as future scope, not built.
 
-⬜ Agency as a tenant — managing multiple foster-care organizations.
-⬜ CASE WORKER role — create/update child records across families, search/
-   match/approve/transfer/end placements, maintain case records, monitor
-   compliance, contact biological family. (Today only the foster parent's own
-   household is visible; no cross-family case-worker access exists.)
-⬜ AGENCY ADMIN role — approve/reject foster-parent applications, oversee all
-   placements, override placement decisions, process reimbursements/stipends,
-   generate state/federal/outcome reports, manage workflows & templates.
-   (The "Agency" plan exists as a billing tier; the full agency case-management
-   workflow is not built.)
-⬜ Placement lifecycle — placement notifications, accept/decline requests,
-   placement matching, transfer, history. (Beyond the current child-profile
-   placement status field.)
+NOTE: a working multi-tenant agency portal now ships — see PART 7. The items
+below now read against PART 7's status (🟡 = partly shipped, ⬜ = still future).
+
+🟡 Agency as a tenant — managing multiple foster-care organizations.
+   (BUILT in PART 7: agencies, staff roles, home oversight, per-agency data isolation.)
+🟡 CASE WORKER role — maintain case records, end placements, monitor compliance.
+   (BUILT in PART 7: create homes, assign children, trial→active→reunified
+   placements, submit licensing. STILL FUTURE: cross-family search/match,
+   transfer between homes, contact biological family.)
+🟡 AGENCY ADMIN role — oversee placements, manage staff & homes. (BUILT in PART 7:
+   staff + home management and the oversight dashboard. STILL FUTURE: approve/
+   reject foster-parent applications, override placement decisions, process
+   reimbursements/stipends, generate state/federal/outcome reports, workflow templates.)
+🟡 Placement lifecycle — trial → active (placed until reunified) → reunified/ended
+   now ships (PART 7). STILL FUTURE: placement notifications, accept/decline
+   requests, placement matching, transfer between homes, full history timeline.
 ⬜ Incident management workflow — foster parent reports → case worker
    investigates → agency escalates/closes/reports to state. (Today incidents
    are free-text in daily care logs; no formal workflow.)
@@ -559,50 +566,201 @@ FULL THREAT TAXONOMY → DEFENSE
 SUGGESTED "LITTLE BY LITTLE" SECURITY WORKLIST (app-code items)
 ------------------------------------------------------------------
 ✅ Per-device session list + selective revoke (§11 / Admin §3) — DONE.
-⬜ Upload malware/AV scanning hook for untrusted files (§8).
-⬜ Optional CAPTCHA / bot-scoring on register + login (§24).
-⬜ Turn on Dependabot + `npm audit` gate; clear transitive advisories (§15).
-⬜ Enforce distributed (Redis) rate limiting in production so limits hold
-   across instances (§6).
+✅ Upload malware/AV scanning hook for untrusted files (§8) — DONE (lib/av-scan,
+   gated by AV_SCAN_URL; fails closed).
+✅ Optional CAPTCHA / bot-scoring on register (§24) — DONE (Cloudflare Turnstile,
+   gated by TURNSTILE_* keys; off by default).
+✅ Dependabot + `npm audit` CI gate (§15) — DONE (.github/dependabot.yml + CI).
+🟡 Enforce distributed (Redis) rate limiting in production (§6) — built + opt-in
+   (set UPSTASH_REDIS_REST_* to enable across instances).
 (Operational items — SPF/DKIM/DMARC, CDN/WAF for DoS/DDoS, backups, DNSSEC,
 cloud/IAM hardening — live in DEPLOYMENT.md, not app code.)
+
+
+
+
+==================================================================
+PART 6 — BILLING CAPABILITIES & STATUS
+==================================================================
+(Sorted from the appended billing master list. Marked with what the app does
+today: ✅ implemented · 🟡 partial / Stripe-managed · ⬜ not built (future) ·
+➖ not applicable. All money movement is via Stripe — card data never touches
+this server.)
+
+------------------------------------------------------------------
+"BUILD FIRST" PRIORITY MODULES → STATUS
+------------------------------------------------------------------
+ 1. Plans .............................. ✅ FREE / Family / Pro / Agency (lib/plans.ts)
+ 2. Subscriptions ...................... ✅ per-household, monthly / annual
+ 3. Stripe Checkout .................... ✅ Checkout Session (+ Payment Link option)
+ 4. Webhooks ........................... ✅ signature-verified, idempotent + pull-reconcile fallback
+ 5. Billing history .................... ✅ invoices list on /billing
+ 6. Invoice download ................... ✅ hosted invoice + PDF links (Stripe)
+ 7. Payment-failure recovery ........... ✅ grace period, status sync, admin alert
+ 8. Subscription up/downgrade .......... ✅ Customer Portal (Stripe proration)
+ 9. Refund system ...................... ✅ in-app admin refunds (full / partial)
+10. Admin billing dashboard ........... ✅ Finance tab (payments, refunds, credits)
+11. Audit logs ........................ ✅ refunds / credits / changes audited
+12. Revenue analytics ................. 🟡 revenue + churn; no MRR/ARR/LTV yet
+13. Tax handling ...................... ⬜ not built (enable Stripe Tax)
+14. Coupon system ..................... ✅ promo codes at checkout
+15. Customer self-service ............. ✅ Stripe Customer Portal + /billing
+
+------------------------------------------------------------------
+FULL BILLING TAXONOMY → STATUS
+------------------------------------------------------------------
+1.  Free-plan management ✅ 🟡
+    ✅ FREE tier with hard limits (children / appointments / checklists) + feature
+    gating. 🟡 trials supported by Stripe; ⬜ no multi-account-abuse / conversion
+    tracking.
+2.  Subscription management ✅
+    Monthly / annual, recurring, renewals, upgrade, downgrade, cancel, reactivate
+    (Customer Portal). ➖ multi-year / lifetime / pause not offered.
+3.  Payment processing ✅ ➖
+    ✅ cards (+ Apple/Google Pay automatically via Stripe Checkout), retries,
+    verification. ➖ ACH / wire / PayPal not enabled.
+4.  Failed-payment handling ✅
+    Declines → Stripe retries; GRACE / PAST_DUE / UNPAID statuses, 7-day grace,
+    admin notification, access drops after grace.
+5.  Plan changes ✅
+    Mid-cycle up/downgrade via the Portal (Stripe proration); entitlements update
+    via webhook + reconcile.
+6.  Proration 🟡
+    Handled automatically by Stripe (Portal / Checkout); no custom proration.
+7.  Usage-based billing ➖
+    Flat tiers; no metered billing.
+8.  Metering ➖
+    N/A (no usage billing).
+9.  Seat-based billing ➖ 🟡
+    Agency multi-home is included in one plan; no per-seat charging.
+10. Invoicing ✅
+    Invoices synced from Stripe (Invoice model) with hosted + PDF links. ➖ custom
+    numbering / credit notes are Stripe-managed.
+11. Tax management ⬜
+    Not built — enable Stripe Tax (sales tax / VAT / GST) before charging where required.
+12. Refunds ✅
+    In-app admin full / partial refunds via Stripe, audited. 🟡 no multi-step approval.
+13. Chargebacks ⬜
+    Handled in the Stripe Dashboard today; no in-app surface.
+14. Dispute management ⬜
+    Stripe Dashboard; not surfaced in-app.
+15. Discounts ✅ ➖
+    ✅ promo codes / coupons at checkout (Stripe promotion codes). ➖ referral /
+    volume / stackable not built.
+16. Trial management 🟡
+    Stripe trials sync (trialEndsAt); ⬜ no trial-extension / abuse UI.
+17. Enterprise billing ⬜
+    Custom contracts / POs / net terms — future (state-agency vision, PART 4).
+18. Multi-currency ⬜
+    Single currency (USD) today.
+19. Fraud prevention ✅ 🟡
+    ✅ no card data stored; Stripe Radar by default. 🟡 no app-level trial /
+    account-farming controls (see PART 5 §24 bot worklist).
+20. Account-status management ✅
+    ACTIVE / TRIALING / PAST_DUE / GRACE / UNPAID / CANCELED / INCOMPLETE mapped.
+21. Feature entitlement ✅
+    Plan→feature matrix (lib/plans.ts) + agency-aware effective tier; access
+    re-resolved from the DB on every request.
+22. Billing notifications ✅ 🟡
+    ✅ admin alerted on failed payment. 🟡 customer renewal / trial-ending emails
+    rely on Stripe (app itself sends reset / invite / reminder).
+23. Billing audit logs ✅
+    Refunds, credits and subscription changes recorded in the admin audit log.
+24. Revenue reporting 🟡
+    Revenue total + churn in the Analytics tab; ⬜ MRR / ARR / LTV / ARPU / NRR not computed.
+25. Customer self-service ✅
+    Update card, download invoices, change plan, cancel, reactivate, view history —
+    via /billing + the Stripe Customer Portal.
+26. Data synchronization ✅
+    Idempotent, signature-verified webhooks (dedup by event id) PLUS a pull
+    reconcile that recovers missed / delayed / duplicate webhooks (resolves the
+    customer by stored id or owner email; stamps tier + household). This is the
+    post-purchase upgrade path and runs the auto-return countdown.
+27. Security ✅
+    PCI: card entry is Stripe-hosted (no card data stored). Webhook signature
+    verification; secret key encrypted + masked, SUPER_ADMIN + TOTP step-up only.
+28. Admin billing tools ✅ 🟡
+    ✅ manual credits, refunds, finance dashboard, audit log. 🟡 manual-invoice /
+    subscription-override not built.
+29. Accounting integration ⬜
+    QuickBooks / Xero / ERP / revenue recognition — future.
+30. Scaling challenges ⬜
+    High volume, global tax, multi-region — operational / infra (future).
+
+------------------------------------------------------------------
+FOSTER-CARE-SPECIFIC BILLING
+------------------------------------------------------------------
+✅ Individual foster-parent, Family, and Agency plans · parent-managed billing.
+🟡 Agency-managed billing — one plan covers the agency's homes (no per-seat charge).
+⬜ State-agency contracts, per-child / per-user pricing, staff-seat billing,
+   document / SMS / background-check / training / licensing fees, grant /
+   scholarship / government-funded accounts, organization invoicing, custom-
+   contract & multi-location billing — all future (align with PART 4).
+
+------------------------------------------------------------------
+SUGGESTED "LITTLE BY LITTLE" BILLING WORKLIST (app-code)
+------------------------------------------------------------------
+✅ Tax — Stripe Tax wired into checkout, gated by STRIPE_TAX_ENABLED (§11).
+✅ Richer revenue metrics — MRR / ARR / ARPU in the Analytics tab (§24).
+✅ Customer billing emails — owner emailed on a plan change (up/down/cancel) (§22).
+✅ Admin manual plan grant / comp (grant / scholarship / government-funded accounts)
+   — Finance tab; comped plans are skipped by the Stripe reconcile (§28).
+✅ Prefer Checkout Sessions over Payment Links to avoid duplicate Stripe customers
+   (reconcile now handles both, but Checkout is the clean path).
+(Future / Stripe-Dashboard: chargebacks/disputes, enterprise contracts,
+multi-currency, accounting integration, usage/seat billing.)
+(Chargebacks, enterprise contracts, multi-currency, accounting integration →
+future / Stripe-Dashboard for now.)
 
 
 ==================================================================
 SUMMARY
 ==================================================================
-The shipped product — a private, secure foster-parent app plus an 11-tab
-platform-admin console — is COMPLETE and verified (build · typecheck · 63
-tests · security audit PASS).
+The shipped product — a private, secure foster-parent app, a multi-tenant agency
+portal, an 11-tab platform-admin console and full billing — is COMPLETE and
+verified (build · typecheck · 66 tests · security audit PASS).
 
 ✅ DONE
 • Core features 1–9 (profiles, appointments, documents, care logs,
   medications, expenses, contacts, routines, licensing).
 • User roles (Foster Parent / Co-Parent / Babysitter / Admin).
-• Stripe payments: 4 plans, monthly/annual, promo codes, portal, invoices,
-  grace periods, signature-verified webhooks.
-• Two-factor auth (TOTP) with a scannable QR code (generated locally — the
-  secret never leaves the server) + backup codes.
+• Billing (PART 6): Stripe Checkout + Payment Links, signature-verified webhooks
+  PLUS a pull-reconcile fallback, invoices, in-app refunds + credits, promo
+  codes, Customer Portal, and an automatic post-purchase return (5s countdown).
+• Two-factor auth (TOTP) with a scannable QR code (generated locally) + backup codes.
 • Security & privacy + cybersecurity audit (PASS); threat model in PART 5.
 • Per-device active-session list with selective revoke (§3, threat §11).
-• Admin platform: 22 of 25 spec sections implemented — full admin CAN-do list
+• Agency portal (PART 7): multi-tenant agency login, staff roles (admin / case-
+  worker / viewer), create / link / oversee homes, assign children with a
+  trial→active→reunified placement lifecycle, submit licensing, agency-aware tier.
+• Revenue analytics: MRR / ARR / ARPU + DAU/WAU/MAU + churn (Analytics tab).
+• Admin billing tools: in-app refunds + credits, CSV export, AND manual plan
+  grant / comp for grant / scholarship / government-funded accounts (Finance tab).
+• Customer billing emails on plan change; Stripe Tax (gated); System-tab config
+  check now flags placeholder/invalid Stripe & email keys + CPU/load metrics.
+• Security extras: upload AV-scan hook + CAPTCHA (both gated, off by default) +
+  Dependabot/CI supply-chain checks.
+• Admin platform: 23 of 25 spec sections implemented — full admin CAN-do list
   (create/edit/verify/reset/force-logout users, soft-delete+restore, in-app
-  refunds + credits, CSV export) and every MUST-NOT restriction enforced.
+  refunds + credits + plan grants, CSV export) and every MUST-NOT restriction enforced.
 
-🟡 PARTIAL (works; refinement, an option to enable, or ops)
+🟡 PARTIAL (an option to enable, or ops)
 • Separate admin-only login page (admins use hardened /login; 2FA+RBAC) (§3).
-• Plan-CRUD UI (plans live in code + Stripe config) (§10).
-• Distributed (Redis) rate limiting — optional, off by default (threat §6).
-• Upload AV scanning, bot/CAPTCHA, Dependabot — see PART 5 worklist.
+• Distributed (Redis) rate limiting — built, opt-in via UPSTASH_REDIS_REST_* (threat §6).
+• Stripe Tax / AV-scan / CAPTCHA — built but OFF by default (need keys/activation).
 • Backup & recovery — operational runbook, not app code (§22).
 
 ➖ NOT APPLICABLE
 • Content management (§8) / Reports-moderation (§9) — no public UGC.
-• Native mobile-app threats (§22) — responsive web only.
+• Usage / metered / seat billing (PART 6 §7–9) — flat foster-care plans.
+• Native mobile-app threats — responsive web only.
 
 ⬜ FUTURE / OUT OF SCOPE
-• PART 4 — multi-agency platform, Case Worker accounts, placement lifecycle,
-  formal incident workflow, AI features.
+• PART 4 — remaining agency vision: foster-parent application approval, placement
+  transfer / matching, formal incident workflow, AI features. (The agency portal,
+  case-worker roles & the trial→reunified placement lifecycle now ship — PART 7.)
+• Billing: chargebacks/disputes, enterprise contracts, multi-currency,
+  accounting integration (handled in the Stripe Dashboard today).
 • Operational/infra security (PART 5: DDoS/CDN, DNS, cloud/IAM, malware/EDR).
 
 Deferred by choice: Next.js 14→16 major upgrade (staying on patched 14.2.35).
@@ -613,325 +771,133 @@ remove demo accounts after the UI check).
 
 
 
+==================================================================
+PART 7 — AGENCY & STAFF ROLES (multi-tenant agency portal)
+==================================================================
+The agency platform first sketched as "future" in PART 4 now ships as a working
+multi-tenant portal (sign in at /agency-login). An agency oversees its own foster
+homes; case workers create homes and run placements; staff are scoped by role.
+Each agency sees ONLY its own data — every query is scoped by Household.agencyId.
+LEGEND: ✅ built · 🟡 partial · ⬜ future / larger-scope (also tracked in PART 4).
 
+------------------------------------------------------------------
+CONCEPT
+------------------------------------------------------------------
+Agency = the organization that oversees foster homes, children & compliance.
+Staff  = the people who work under the agency, each scoped by their role.
+Home   = a foster parent's household; an agency oversees the homes linked to it.
 
+------------------------------------------------------------------
+ROLES & CAPABILITIES (highest authority → lowest)
+------------------------------------------------------------------
+Three agency roles ship today (AgencyRole enum): AGENCY_ADMIN, CASE_WORKER,
+AGENCY_VIEWER. The finer staff titles further below (Social Worker, Licensing
+Specialist, Intake Coordinator, Supervisor, Admin Assistant) are future
+sub-roles — listed once here, not yet distinct in code.
 
-========================================================
-WEB APPLICATION BILLING CHALLENGES
-MASTER LIST
-========================================================
+AGENCY ADMIN  (agency director / owner of the tenant)
+  ✅ Manage agency profile & settings
+  ✅ Add / remove staff and set each one's role
+  ✅ Create a new foster home for a foster parent
+  ✅ Link an existing home by the foster parent's email
+  ✅ Unlink a home (oversight ends; the foster parent keeps it)
+  ✅ View every linked home's oversight detail
+  ✅ Assign children, manage placement status, submit licensing
+  ✅ Approve / suspend a foster home (status: pending / approved / suspended)
+  ✅ Broadcast announcements to the agency's homes
+  ⬜ Override placement decisions; process reimbursements / stipends
+  ⬜ Generate state / federal / outcome reports
 
-1. FREE PLAN MANAGEMENT
-- Free tier abuse
-- Multiple account creation
-- Resource limits
-- Feature restrictions
-- Trial expiration
-- User conversion tracking
+CASE WORKER
+  ✅ Create a new foster home (a foster parent is REQUIRED — never blank)
+  ✅ Assign a child to that foster parent's home, starting on a TRIAL placement
+       (default 30 days, or a chosen trial-end date). The child lands as PENDING on
+       the foster parent's dashboard — they Accept (→ TRIAL_HOME_VISIT) or Decline,
+       and the Y/N is recorded on the placement. After the trial date passes it
+       auto-becomes a full ACTIVE placement (placed until reunified), applied
+       lazily on view, so it needs no background job.
+  ✅ Mark a placement REUNIFIED / ENDED
+  ✅ Move a child between the agency's homes (transfer → new PENDING placement,
+       old placement ended; the child's placements form a transfer history)
+  ✅ Record case-worker visits to a home (date, type, summary)
+  ✅ Submit a licensing / compliance item for the foster parent to complete
+  ✅ Review / escalate / resolve / close incidents foster parents report
+  ✅ View assigned homes & children (case fields only — no medical/private notes)
+  ✅ No "Back to app" link (a case worker has no household of their own)
+  ⬜ Schedule (calendar) visits in advance and track case goals as a formal workflow
 
-2. SUBSCRIPTION MANAGEMENT
-- Monthly subscriptions
-- Annual subscriptions
-- Multi-year subscriptions
-- Lifetime plans
-- Recurring billing
-- Subscription renewals
-- Subscription expiration
-- Subscription upgrades
-- Subscription downgrades
-- Subscription pauses
-- Subscription reactivation
-- Subscription cancellation
+AGENCY VIEWER
+  ✅ Read-only oversight: view homes and children
+  ✅ Cannot create, assign, or manage anything
 
-3. PAYMENT PROCESSING
-- Credit cards
-- Debit cards
-- Bank accounts
-- ACH transfers
-- Wire transfers
-- PayPal
-- Apple Pay
-- Google Pay
-- International payments
-- Failed transactions
-- Payment retries
-- Payment verification
+Future staff sub-roles (⬜ not yet distinct — would refine CASE_WORKER / VIEWER):
+  ⬜ Social Worker        — assessments, care plans, observations, progress, reports
+  ⬜ Licensing Specialist — applications, certifications, background checks,
+                            inspections, renewals
+  ⬜ Intake Coordinator   — intake records, initial documentation, intake status
+  ⬜ Supervisor           — review staff work, approve reports, reassign, escalate
+  ⬜ Admin Assistant      — calendars, scheduling, forms (no case notes / finance)
 
-4. FAILED PAYMENT HANDLING
-- Expired cards
-- Insufficient funds
-- Bank declines
-- Fraud declines
-- Payment processor errors
-- Retry schedules
-- Grace periods
-- Account suspension after failure
+PRIVACY (enforced for every role): an agency member can NEVER see another
+agency's data, a foster parent's private/medical notes, passwords, or audit
+history (the GOLDEN RULE, PART 4).
 
-5. PLAN CHANGES
-- Mid-cycle upgrades
-- Mid-cycle downgrades
-- Immediate upgrades
-- Delayed downgrades
-- Proration calculations
-- Feature entitlement updates
-- Billing cycle adjustments
+------------------------------------------------------------------
+AGENCY DASHBOARD (Overview tab)
+------------------------------------------------------------------
+  ✅ Foster homes · children · active placements · staff · compliance alerts
+  ✅ Available homes · placement-request (pending accept/deny) queue · open incidents
+  ⬜ Staff-performance metrics (per-worker caseload / placement throughput)
 
-6. PRORATION
-- Upgrade mid-month
-- Downgrade mid-month
-- Seat additions
-- Seat removals
-- Usage changes
-- Partial refunds
-- Billing corrections
+------------------------------------------------------------------
+AGENCY FEATURE CHECKLIST (deduplicated — each item appears once)
+------------------------------------------------------------------
+Built ✅
+  ✅ Multi-agency architecture — each agency isolated by Household.agencyId
+  ✅ Separate agency login (/agency-login) + role-aware redirect
+  ✅ Staff management (add / remove, role assignment)
+  ✅ Foster-home management (create / link / unlink / oversee)
+  ✅ Foster-home approval / suspension status (agency oversight)
+  ✅ Child placement (assign → foster-parent Accept/Decline (Y/N) → trial→active
+       lifecycle → reunify / end), plus transfer between homes + placement history
+  ✅ Case-worker visit records (per home)
+  ✅ Licensing / compliance submission to a home + downloadable PDF
+  ✅ Incident reporting & escalation workflow (foster parent → case worker)
+  ✅ Announcements (agency → its homes, shown on the foster-parent dashboard)
+  ✅ Court-report PDF generator (per child, from logged data)
+  ✅ Billing management (Stripe plans; admin Finance / Plans tabs — PART 6)
+  ✅ Audit logs (immutable security event on every agency mutation)
 
-7. USAGE-BASED BILLING
-- API calls
-- Storage consumption
-- Bandwidth usage
-- Compute hours
-- AI token usage
-- Database usage
-- User seats
-- Message volume
-- Email volume
-- SMS volume
+Future ⬜ (larger-scope vision — also tracked in PART 4)
+  🟡 Agency reporting & analytics — overview metrics + PDF exports ship; full
+       placement / compliance / outcome / performance analytics still to come
+  ⬜ Foster-parent training-hour tracking surfaced to the agency
+  ⬜ Secure messaging between agency, staff and foster parents
+  ⬜ State-reimbursement / payroll / grant tracking
+  ⬜ State-compliance reporting · document sharing
+  ⬜ Override placement decisions; state / federal / outcome reports
+  ⬜ AI assistant (placement matching, summaries, court reports, risk scoring)
 
-8. METERING CHALLENGES
-- Real-time usage tracking
-- Delayed reporting
-- Duplicate events
-- Missing events
-- Billing accuracy
-- Usage reconciliation
-- Usage disputes
-
-9. SEAT-BASED BILLING
-- Team members
-- Employee seats
-- Agency seats
-- Contractor seats
-- Shared accounts
-- Seat allocation
-- Seat reassignment
-
-10. INVOICING
-- Invoice generation
-- Invoice numbering
-- Invoice storage
-- Invoice delivery
-- PDF invoices
-- Tax invoices
-- Credit notes
-- Invoice corrections
-
-11. TAX MANAGEMENT
-- Sales tax
-- VAT
-- GST
-- International tax laws
-- Tax exemptions
-- Tax calculations
-- Tax reporting
-- Tax compliance
-
-12. REFUNDS
-- Full refunds
-- Partial refunds
-- Automatic refunds
-- Manual refunds
-- Refund disputes
-- Refund abuse
-- Refund approvals
-
-13. CHARGEBACKS
-- Fraud claims
-- Customer disputes
-- Unauthorized purchases
-- Evidence submission
-- Chargeback fees
-- Chargeback tracking
-- Revenue loss
-
-14. DISPUTE MANAGEMENT
-- Billing complaints
-- Duplicate charges
-- Wrong plan charges
-- Refund disagreements
-- Contract disputes
-
-15. DISCOUNTS
-- Promo codes
-- Coupons
-- Referral discounts
-- Seasonal discounts
-- Volume discounts
-- Stackable discounts
-- Expiring discounts
-
-16. TRIAL MANAGEMENT
-- Free trials
-- Trial extensions
-- Trial abuse
-- Trial conversion
-- Credit card required trials
-- No-card trials
-
-17. ENTERPRISE BILLING
-- Custom pricing
-- Custom contracts
-- Annual invoicing
-- Multi-year agreements
-- Procurement processes
-- Purchase orders
-- Net payment terms
-
-18. MULTI-CURRENCY SUPPORT
-- Currency conversion
-- Exchange rates
-- Currency rounding
-- Regional pricing
-- International reconciliation
-
-19. FRAUD PREVENTION
-- Stolen cards
-- Fake identities
-- Trial abuse
-- Chargeback abuse
-- Account farming
-- Payment laundering
-
-20. ACCOUNT STATUS MANAGEMENT
-- Active
-- Trial
-- Past due
-- Suspended
-- Canceled
-- Expired
-- Pending payment
-
-21. FEATURE ENTITLEMENT
-- Plan feature mapping
-- Feature unlocking
-- Feature locking
-- Dynamic permissions
-- Access synchronization
-
-22. BILLING NOTIFICATIONS
-- Payment success
-- Payment failed
-- Subscription renewal
-- Trial ending
-- Invoice generated
-- Refund issued
-- Chargeback received
-
-23. BILLING AUDIT LOGS
-- Subscription changes
-- Refund history
-- Payment history
-- Admin actions
-- Tax changes
-- Pricing changes
-
-24. REVENUE REPORTING
-- Monthly recurring revenue (MRR)
-- Annual recurring revenue (ARR)
-- Churn
-- Lifetime value (LTV)
-- Average revenue per user (ARPU)
-- Net revenue retention
-
-25. CUSTOMER SELF-SERVICE
-- Update card
-- Download invoices
-- Change plan
-- Cancel subscription
-- Reactivate subscription
-- View billing history
-
-26. DATA SYNCHRONIZATION
-- Stripe webhook failures
-- Duplicate webhooks
-- Missing webhooks
-- Delayed webhooks
-- Sync conflicts
-- Retry processing
-
-27. SECURITY
-- PCI compliance
-- Encryption
-- Payment tokenization
-- Secret key protection
-- Webhook verification
-- Access control
-
-28. ADMIN BILLING TOOLS
-- Manual credits
-- Manual invoices
-- Refund approval
-- Subscription override
-- Account adjustments
-- Billing notes
-
-29. ACCOUNTING INTEGRATION
-- QuickBooks integration
-- Xero integration
-- ERP integration
-- Revenue recognition
-- Tax reporting
-
-30. SCALING CHALLENGES
-- Millions of invoices
-- High transaction volume
-- Global tax rules
-- Multi-region payments
-- Large enterprise contracts
-
-========================================================
-FOSTER CARE HMS SPECIFIC BILLING CHALLENGES
-========================================================
-
-- Individual foster parent plans
-- Family plans
-- Agency plans
-- State agency contracts
-- Per-child pricing
-- Per-user pricing
-- Staff seat billing
-- Document storage billing
-- SMS reminder billing
-- Background check fees
-- Training course fees
-- Licensing fees
-- Annual renewals
-- Grant-funded accounts
-- Scholarship accounts
-- Government-funded accounts
-- Agency-managed billing
-- Parent-managed billing
-- Organization invoicing
-- Custom contract pricing
-- Multi-location billing
-
-========================================================
-MOST CRITICAL BILLING MODULES TO BUILD FIRST
-========================================================
-
-1. Plans
-2. Subscriptions
-3. Stripe Checkout
-4. Webhooks
-5. Billing History
-6. Invoice Download
-7. Payment Failure Recovery
-8. Subscription Upgrades
-9. Refund System
-10. Admin Billing Dashboard
-11. Audit Logs
-12. Revenue Analytics
-13. Tax Handling
-14. Coupon System
-15. Customer Self-Service Portal
-
-These 15 modules cover roughly 90% of the billing functionality needed by modern SaaS web applications.
+------------------------------------------------------------------
+FOSTER-PARENT PRODUCT IDEAS (caregiver-facing wishlist — future ⬜)
+------------------------------------------------------------------
+Kept once, deduped against PART 1 (already built) and the agency list above:
+  ✅ Court-report generator (per-child PDF from placements, appointments, active
+       meds & recent care-log notes — on the child page)
+  🟡 Placement timeline / child journey — placements form a transfer history; a
+       full visual one-click case/court timeline is still to come
+  ⬜ "Today" command center (appointments, meds, visits, licensing due, court)
+  ⬜ Placement-transition packet (child summary, meds, school, comfort items)
+  ⬜ Behavior & trauma tracking (triggers, coping, interventions — TBRI)
+  ⬜ Foster closet / inventory (sizes, supplies, restock alerts)
+  ⬜ Family communication hub (approved contacts, visit logs)
+  ⬜ Resource library (TBRI, trauma-informed parenting, IEP / school advocacy)
+  ⬜ Emergency info mode (one-tap allergies, meds, contacts)
+  ⬜ Shared team portal (caseworker, therapist, GAL, teacher — scoped access)
+  ⬜ Child story & success journal → keepsake memory book at adoption
+  ⬜ Native mobile app (responsive web today; native is the next milestone)
+Already shipped in PART 1 (NOT future): appointments, medications, documents,
+care logs, contacts, routines, and licensing-compliance reminders. Foster parents
+also: respond (Accept/Decline) to assigned placements, see agency announcements &
+caseworker visits, and report incidents — all on the dashboard.
+==================================================================

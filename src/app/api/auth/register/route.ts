@@ -9,6 +9,7 @@ import { notifyAdmins } from '@/lib/notify';
 import { issueEmailVerification } from '@/lib/email-verification';
 import { RateLimits } from '@/lib/rate-limit';
 import { isFlagOn } from '@/lib/settings';
+import { verifyCaptcha } from '@/lib/captcha';
 
 export const runtime = 'nodejs';
 
@@ -23,6 +24,11 @@ export function POST(req: Request) {
     }
 
     const data = await readJson(req, registerSchema);
+
+    // Bot protection — no-op unless Turnstile is configured.
+    if (!(await verifyCaptcha(data.captchaToken, info.ip))) {
+      throw Errors.badRequest('CAPTCHA verification failed. Please try again.');
+    }
 
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) {

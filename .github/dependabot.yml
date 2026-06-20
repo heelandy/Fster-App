@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Application dependencies — weekly, grouped to reduce PR noise.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+  # Keep the GitHub Actions in the CI workflow current too.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

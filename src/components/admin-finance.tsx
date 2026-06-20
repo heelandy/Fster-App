@@ -79,6 +79,8 @@ export function AdminFinance() {
 
   return (
     <div className="space-y-6">
+      <GrantPlan />
+      <PlanCatalogue />
       <ReportExport />
 
       <div>
@@ -137,6 +139,109 @@ export function AdminFinance() {
           Refunds and credits are processed by Stripe. Card data never touches this server.
         </p>
       </div>
+    </div>
+  );
+}
+
+interface PlanRow {
+  tier: string;
+  name: string;
+  priceCentsMonthly: number;
+  priceCentsAnnual: number;
+  limits: { maxChildren: number; maxHouseholds: number; maxAppointments: number; maxChecklists: number };
+  features: string[];
+  stripeMonthlySet: boolean;
+  stripeAnnualSet: boolean;
+}
+
+function PlanCatalogue() {
+  const [plans, setPlans] = useState<PlanRow[] | null>(null);
+  useEffect(() => {
+    fetch('/api/admin/plans').then((r) => (r.ok ? r.json() : [])).then(setPlans).catch(() => setPlans([]));
+  }, []);
+  if (!plans) return null;
+  const lim = (n: number) => (n === -1 ? '∞' : n);
+  return (
+    <div className="card">
+      <h3 className="mb-1 font-semibold text-slate-900">Plan catalogue</h3>
+      <p className="mb-3 text-xs text-slate-400">Source-of-truth plans &amp; feature gating live in code. Edit Stripe Price IDs in the Integrations tab.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-slate-200 text-xs uppercase text-slate-500">
+            <tr>
+              <th className="py-2 pr-3">Plan</th>
+              <th className="py-2 pr-3">Monthly</th>
+              <th className="py-2 pr-3">Annual</th>
+              <th className="py-2 pr-3">Children</th>
+              <th className="py-2 pr-3">Homes</th>
+              <th className="py-2 pr-3">Features</th>
+              <th className="py-2 pr-3">Stripe price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plans.map((p) => (
+              <tr key={p.tier} className="border-b border-slate-100 last:border-0 align-top">
+                <td className="py-2 pr-3 font-medium text-slate-800">{p.name}</td>
+                <td className="py-2 pr-3 text-slate-600">{money(p.priceCentsMonthly)}</td>
+                <td className="py-2 pr-3 text-slate-600">{money(p.priceCentsAnnual)}</td>
+                <td className="py-2 pr-3 text-slate-600">{lim(p.limits.maxChildren)}</td>
+                <td className="py-2 pr-3 text-slate-600">{lim(p.limits.maxHouseholds)}</td>
+                <td className="py-2 pr-3 text-slate-500">{p.features.length}</td>
+                <td className="py-2 pr-3">
+                  {p.tier === 'FREE' ? <span className="text-slate-400">—</span>
+                    : (p.stripeMonthlySet && p.stripeAnnualSet)
+                      ? <span className="badge bg-green-100 text-green-700">set</span>
+                      : <span className="badge bg-amber-100 text-amber-700">missing</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function GrantPlan() {
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    const fd = new FormData(e.currentTarget);
+    const res = await fetch('/api/admin/billing/grant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: String(fd.get('email')), tier: String(fd.get('tier')), note: String(fd.get('note') || '') }),
+    });
+    setBusy(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { setMsg({ kind: 'err', text: d?.error || 'Could not grant the plan.' }); return; }
+    setMsg({ kind: 'ok', text: `Set ${d.household} to ${d.tier}${d.comped ? ' (comped — not billed)' : ''}.` });
+    (e.target as HTMLFormElement).reset();
+  }
+
+  return (
+    <div className="card">
+      <h3 className="mb-1 font-semibold text-slate-900">Grant / comp a plan</h3>
+      <p className="mb-3 text-xs text-slate-400">
+        For grant-funded, scholarship or comped accounts. Applied by the owner’s email to their primary home; a paid
+        tier is not billed and is left untouched by Stripe sync. Set <strong>Free</strong> to revoke.
+      </p>
+      <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
+        <input name="email" type="email" required placeholder="owner email" className="input max-w-xs" />
+        <select name="tier" defaultValue="PRO" className="input max-w-[10rem]">
+          <option value="FREE">Free (revoke)</option>
+          <option value="FAMILY">Family</option>
+          <option value="PRO">Pro</option>
+          <option value="AGENCY">Agency</option>
+        </select>
+        <input name="note" placeholder="note (optional)" className="input max-w-xs" />
+        <button type="submit" disabled={busy} className="btn-secondary">{busy ? 'Saving…' : 'Grant'}</button>
+      </form>
+      {msg && <p className={`mt-2 text-sm ${msg.kind === 'ok' ? 'text-green-700' : 'text-red-600'}`}>{msg.text}</p>}
     </div>
   );
 }

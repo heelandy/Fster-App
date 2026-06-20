@@ -3,18 +3,27 @@ import { prisma } from '@/lib/prisma';
 import { PLANS } from '@/lib/plans';
 import { reconcileFromStripe } from '@/lib/billing-sync';
 import { BillingClient } from '@/components/billing-client';
+import { CountdownRedirect } from '@/components/countdown-redirect';
 import { AccessDenied } from '@/components/feature-locked';
 
-export default async function BillingPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function BillingPage({ searchParams }: { searchParams: { status?: string; refresh?: string } }) {
   let ctx = await requireHousehold();
   if (!can(ctx, 'billing:manage')) return <AccessDenied />;
 
   const justPaid = searchParams?.status === 'success';
   const cancelled = searchParams?.status === 'cancelled';
 
-  // Returning from checkout — pull the latest subscription straight from Stripe so
-  // the upgrade applies even without a webhook, then re-read the context.
-  if (justPaid) {
+  // Pull the latest subscription straight from Stripe so purchases AND
+  // cancellations / downgrades reflect immediately — no webhook needed. Reconcile
+  // on return from checkout (?status=success) or the billing portal (?refresh=1),
+  // and whenever this household already has a Stripe customer (so a cancellation
+  // made in the portal shows up on the next billing visit too).
+  const preCustomer = await prisma.household.findUnique({
+    where: { id: ctx.householdId },
+    select: { stripeCustomerId: true },
+  });
+  const onPaidPlan = ctx.tier !== 'FREE' && !!preCustomer?.stripeCustomerId;
+  if (justPaid || searchParams?.refresh === '1' || onPaidPlan) {
     try { await reconcileFromStripe(ctx.householdId); } catch { /* poll/webhook will catch up */ }
     ctx = await requireHousehold();
   }
@@ -54,9 +63,8 @@ export default async function BillingPage({ searchParams }: { searchParams: { st
     <div>
       {justPaid && (
         <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          ✅ Payment received — thank you! Your plan updates here within a few seconds (refresh if needed).
-          You can safely <strong>close this tab</strong> and return to the app.{' '}
-          <a href="/dashboard" className="font-medium underline">Go to dashboard</a>
+          ✅ Payment received — thank you! Your plan is updated.{' '}
+          <CountdownRedirect to="/dashboard" seconds={5} message="Returning to your dashboard" />
         </div>
       )}
       {cancelled && (

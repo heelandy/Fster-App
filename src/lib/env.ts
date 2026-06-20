@@ -55,6 +55,22 @@ const schema = z.object({
   // Optional error-reporting webhook (Slack/Discord/Sentry-relay/custom). When set,
   // unhandled server errors are POSTed here as JSON. Unset = console logging only.
   ERROR_WEBHOOK_URL: z.string().default(''),
+
+  // Stripe Tax (automatic sales tax / VAT / GST). Off by default — only enable
+  // AFTER activating Stripe Tax in the Dashboard, or checkout will error.
+  STRIPE_TAX_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v.toLowerCase() === 'true'),
+
+  // Optional malware/AV scan endpoint for uploads. When set, uploaded files are
+  // POSTed here and rejected unless the scanner reports them clean. Unset = skip.
+  AV_SCAN_URL: z.string().default(''),
+
+  // Optional Cloudflare Turnstile (CAPTCHA) on registration. Set BOTH to enable;
+  // unset = no CAPTCHA. The site key is also read client-side via NEXT_PUBLIC_*.
+  TURNSTILE_SECRET_KEY: z.string().default(''),
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().default(''),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -75,3 +91,6 @@ export const stripeConfigured = env.STRIPE_SECRET_KEY.startsWith('sk_');
 export const emailConfigured = env.RESEND_API_KEY.length > 0;
 export const redisConfigured =
   env.UPSTASH_REDIS_REST_URL.length > 0 && env.UPSTASH_REDIS_REST_TOKEN.length > 0;
+export const avScanConfigured = env.AV_SCAN_URL.length > 0;
+export const captchaConfigured =
+  env.TURNSTILE_SECRET_KEY.length > 0 && env.NEXT_PUBLIC_TURNSTILE_SITE_KEY.length > 0;

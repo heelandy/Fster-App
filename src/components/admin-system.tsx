@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 interface Health {
   db: { ok: boolean; latencyMs: number };
   storage: { dir: string; files: number; bytes: number; writable: boolean; capped?: boolean; maxUploadBytes: number };
-  runtime: { node: string; uptimeSeconds: number; rssBytes: number; heapUsedBytes: number; platform: string; env: string };
+  runtime: { node: string; uptimeSeconds: number; rssBytes: number; heapUsedBytes: number; cpuPercent: number; cpuCores: number; loadAvg1m: number; platform: string; env: string };
   integrations: { stripe: boolean; email: boolean; cronConfigured: boolean };
   queues: { openTickets: number; unreadNotifications: number };
   configWarnings: { level: 'critical' | 'warning'; message: string }[];
@@ -86,6 +86,9 @@ export function AdminSystem() {
           <Row label="Node" value={data.runtime.node} />
           <Row label="Environment" value={data.runtime.env} />
           <Row label="Uptime" value={uptime(data.runtime.uptimeSeconds)} />
+          <Row label="CPU (process)" value={`${data.runtime.cpuPercent}%`} status={data.runtime.cpuPercent < 85} />
+          <Row label="CPU cores" value={data.runtime.cpuCores} />
+          {data.runtime.loadAvg1m > 0 && <Row label="Load avg (1m)" value={data.runtime.loadAvg1m} />}
           <Row label="Memory (RSS)" value={mb(data.runtime.rssBytes)} />
           <Row label="Heap used" value={mb(data.runtime.heapUsedBytes)} />
         </div>

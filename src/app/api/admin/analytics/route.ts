@@ -1,6 +1,15 @@
+import type { PlanTier, BillingInterval } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAdminPermission } from '@/lib/authz';
 import { handle, json } from '@/lib/http';
+import { PLANS } from '@/lib/plans';
+
+/** Monthly-equivalent price for a plan/interval (annual ÷ 12). FREE = 0. */
+function monthlyCents(tier: PlanTier, interval: BillingInterval): number {
+  const plan = PLANS[tier];
+  if (!plan) return 0;
+  return interval === 'ANNUAL' ? Math.round(plan.priceCentsAnnual / 12) : plan.priceCentsMonthly;
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic'; // auth-gated, per-request — never prerender
@@ -22,7 +31,7 @@ export function GET() {
     const now = Date.now();
     const since = new Date(now - 30 * DAY_MS);
 
-    const [signupRows, loginRows, totalUsers, activeSubs, canceled30d] = await Promise.all([
+    const [signupRows, loginRows, totalUsers, activeSubs, canceled30d, subGroups] = await Promise.all([
       prisma.user.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } }),
       prisma.securityAuditLog.findMany({
         where: { event: 'LOGIN_SUCCESS', createdAt: { gte: since }, actorId: { not: null } },
@@ -35,6 +44,12 @@ export function GET() {
       prisma.user.count(),
       prisma.subscription.count({ where: { status: { in: ['ACTIVE', 'TRIALING', 'GRACE', 'PAST_DUE'] } } }),
       prisma.subscription.count({ where: { status: 'CANCELED', updatedAt: { gte: since } } }),
+      // Entitling subscriptions grouped by plan + interval → recurring revenue.
+      prisma.subscription.groupBy({
+        by: ['tier', 'interval'],
+        where: { status: { in: ['ACTIVE', 'TRIALING', 'GRACE', 'PAST_DUE'] } },
+        _count: { _all: true },
+      }),
     ]);
 
     // Build 30 contiguous day buckets so the chart has no gaps.
@@ -72,6 +87,16 @@ export function GET() {
 
     const churnRate = activeSubs + canceled30d > 0 ? canceled30d / (activeSubs + canceled30d) : 0;
 
+    // Recurring revenue from entitling subscriptions (monthly-equivalent).
+    let mrrCents = 0;
+    let payingSubs = 0;
+    for (const g of subGroups) {
+      mrrCents += g._count._all * monthlyCents(g.tier, g.interval);
+      if (g.tier !== 'FREE') payingSubs += g._count._all;
+    }
+    const arrCents = mrrCents * 12;
+    const arpuCents = payingSubs > 0 ? Math.round(mrrCents / payingSubs) : 0;
+
     return json({
       series,
       kpis: {
@@ -81,8 +106,12 @@ export function GET() {
         totalUsers,
         newUsers30d: signupRows.length,
         activeSubs,
+        payingSubs,
         canceled30d,
         churnRatePct: Math.round(churnRate * 1000) / 10,
+        mrrCents,
+        arrCents,
+        arpuCents,
       },
     });
   });

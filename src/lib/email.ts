@@ -171,6 +171,16 @@ export function sendVerificationEmail(to: string, link: string): Promise<SendRes
   });
 }
 
+/** Sent to the household owner when their subscription plan changes (up/down/cancel). */
+export function sendPlanChanged(to: string, fromTier: string, toTier: string): Promise<SendResult> {
+  const toFree = toTier === 'FREE';
+  const heading = toFree ? 'Your subscription was canceled' : `You’re now on the ${toTier} plan`;
+  const body = toFree
+    ? `<p style="font-size:14px;line-height:1.6">Your plan changed from <strong>${escapeHtml(fromTier)}</strong> to <strong>Free</strong>. You can re-subscribe anytime from the Billing page.</p>`
+    : `<p style="font-size:14px;line-height:1.6">Your plan changed from <strong>${escapeHtml(fromTier)}</strong> to <strong>${escapeHtml(toTier)}</strong> — thank you! You can manage your subscription anytime from the Billing page.</p>`;
+  return deliver({ to, subject: heading, html: emailLayout(heading, body) });
+}
+
 export function sendReminder(to: string, title: string, whenLabel: string, detail: string): Promise<SendResult> {
   return deliver({
     to,

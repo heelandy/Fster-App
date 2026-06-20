@@ -26,7 +26,9 @@ export function POST() {
     const stripe = await getStripe();
     const session = await stripe.billingPortal.sessions.create({
       customer: household.stripeCustomerId,
-      return_url: `${env.APP_URL}/billing`,
+      // Reconcile on return so a cancellation / plan change made in the portal
+      // reflects in the app immediately (no webhook needed).
+      return_url: `${env.APP_URL}/billing?refresh=1`,
     });
     return json({ url: session.url });
   });

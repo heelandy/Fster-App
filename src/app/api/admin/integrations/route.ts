@@ -8,9 +8,7 @@ import { integrationConfigSchema } from '@/lib/validation';
 import { hasStepUp, requireStepUp } from '@/lib/stepup';
 import { logAdmin } from '@/lib/audit';
 import {
-  getIntegrationStatus,
-  setStripeSecretKey, setStripePublishableKey, setStripeWebhookSecret, setStripePriceId,
-  setStripePaymentLink, setResendApiKey, setEmailFrom,
+  getIntegrationStatus, setStripePriceId, setStripePaymentLink, setEmailFrom,
 } from '@/lib/config';
 
 export const runtime = 'nodejs';
@@ -46,10 +44,9 @@ export function POST(req: Request) {
     const data = await readJson(req, integrationConfigSchema);
     const changed: string[] = [];
 
-    if (data.stripeSecretKey !== undefined) { await setStripeSecretKey(data.stripeSecretKey, admin.id); changed.push('stripeSecretKey'); }
-    if (data.stripePublishableKey !== undefined) { await setStripePublishableKey(data.stripePublishableKey, admin.id); changed.push('stripePublishableKey'); }
-    if (data.stripeWebhookSecret !== undefined) { await setStripeWebhookSecret(data.stripeWebhookSecret, admin.id); changed.push('stripeWebhookSecret'); }
-    if (data.resendApiKey !== undefined) { await setResendApiKey(data.resendApiKey, admin.id); changed.push('resendApiKey'); }
+    // Secret keys (Stripe secret, webhook signing secret, Resend key) are NOT
+    // settable here — they live in environment variables only, so the app never
+    // exposes a way to enter or read them. Only non-secret config is editable.
     if (data.emailFrom !== undefined) { await setEmailFrom(data.emailFrom, admin.id); changed.push('emailFrom'); }
     if (data.prices) {
       for (const [tier, intervals] of Object.entries(data.prices)) {

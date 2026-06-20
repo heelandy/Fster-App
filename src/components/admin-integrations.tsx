@@ -58,12 +58,8 @@ export function AdminIntegrations() {
     setBusy(true); setMsg(null);
     const fd = new FormData(e.currentTarget);
     const body: Record<string, unknown> = {};
-    // Secrets: only send if the admin typed a value (empty = leave unchanged).
-    for (const k of ['stripeSecretKey', 'stripeWebhookSecret', 'resendApiKey']) {
-      const v = String(fd.get(k) ?? '').trim();
-      if (v) body[k] = v;
-    }
-    // Non-secret: always send the (editable) current value.
+    // Non-secret config only — secret keys are set via environment variables and
+    // are never entered through this UI.
     body.emailFrom = String(fd.get('emailFrom') ?? '');
     const prices: Record<string, Record<string, string>> = {};
     const paymentLinks: Record<string, Record<string, string>> = {};
@@ -83,17 +79,6 @@ export function AdminIntegrations() {
     if (!res.ok) { setMsg({ kind: 'err', text: d?.error || 'Save failed.' }); return; }
     setResp((p) => (p ? { ...p, status: d.status } : p));
     setMsg({ kind: 'ok', text: 'Saved.' });
-  }
-
-  async function clearSecret(field: string) {
-    if (!confirm('Clear this value? It will fall back to the environment variable (or be disabled).')) return;
-    setBusy(true); setMsg(null);
-    const res = await fetch('/api/admin/integrations', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [field]: '' }),
-    });
-    setBusy(false);
-    const d = await res.json().catch(() => ({}));
-    if (res.ok) { setResp((p) => (p ? { ...p, status: d.status } : p)); setMsg({ kind: 'ok', text: 'Cleared.' }); }
   }
 
   async function sendTestEmail() {
@@ -164,7 +149,8 @@ export function AdminIntegrations() {
   return (
     <div className="space-y-6">
       <p className="text-xs text-slate-400">
-        Verified ✓ — this session can edit live keys for ~10 minutes. Secrets are stored encrypted; values shown are masked.
+        Verified ✓ — edit non-secret config (prices, links, email From) here for ~10 minutes. <strong>Secret keys are
+        set via environment variables only</strong> and are never entered in this UI; their status is shown (masked) below.
       </p>
 
       {/* Status summary */}
@@ -192,18 +178,17 @@ export function AdminIntegrations() {
 
           <div>
             <label className="label flex items-center gap-2">Secret key <SourceTag source={s.stripe.secretKeySource} set={s.stripe.secretKeySet} /></label>
-            <input name="stripeSecretKey" type="password" autoComplete="off" placeholder={s.stripe.secretKeySet ? `current: ${s.stripe.secretKeyMasked} — leave blank to keep` : 'sk_live_…'} className="input" />
-            {s.stripe.secretKeySource === 'db' && <button type="button" onClick={() => clearSecret('stripeSecretKey')} className="mt-1 text-xs text-red-600 hover:underline">Clear (use env)</button>}
+            <p className="font-mono text-sm text-slate-700">{s.stripe.secretKeySet ? s.stripe.secretKeyMasked : 'Not set'}</p>
+            <p className="mt-1 text-xs text-slate-400">Set via the <code>STRIPE_SECRET_KEY</code> environment variable — kept server-side, never entered here.</p>
           </div>
 
           <div>
             <label className="label flex items-center gap-2">Webhook signing secret <SourceTag source={s.stripe.webhookSecretSource} set={s.stripe.webhookSecretSet} /></label>
-            <input name="stripeWebhookSecret" type="password" autoComplete="off" placeholder={s.stripe.webhookSecretSet ? 'set — leave blank to keep' : 'whsec_… (or use the button below)'} className="input" />
-            <div className="mt-2 flex flex-wrap items-center gap-3">
+            <div className="mt-1 flex flex-wrap items-center gap-3">
               <button type="button" onClick={createWebhook} disabled={busy} className="btn-secondary">Create live webhook endpoint</button>
               {s.stripe.webhookEndpointId && <span className="text-xs text-slate-500">endpoint: {s.stripe.webhookEndpointId}</span>}
             </div>
-            <p className="mt-1 text-xs text-slate-400">Registers <code>/api/stripe/webhook</code> with Stripe and stores the signing secret automatically (needs the secret key set first).</p>
+            <p className="mt-1 text-xs text-slate-400">Set via <code>STRIPE_WEBHOOK_SECRET</code>, or use the button (registers <code>/api/stripe/webhook</code> and stores the secret automatically — needs a public URL).</p>
           </div>
 
           <div>
@@ -237,8 +222,8 @@ export function AdminIntegrations() {
           <h3 className="font-semibold text-slate-900">Email (Resend)</h3>
           <div>
             <label className="label flex items-center gap-2">API key <SourceTag source={s.email.apiKeySource} set={s.email.apiKeySet} /></label>
-            <input name="resendApiKey" type="password" autoComplete="off" placeholder={s.email.apiKeySet ? `current: ${s.email.apiKeyMasked} — leave blank to keep` : 're_…'} className="input" />
-            {s.email.apiKeySource === 'db' && <button type="button" onClick={() => clearSecret('resendApiKey')} className="mt-1 text-xs text-red-600 hover:underline">Clear (use env)</button>}
+            <p className="font-mono text-sm text-slate-700">{s.email.apiKeySet ? s.email.apiKeyMasked : 'Not set'}</p>
+            <p className="mt-1 text-xs text-slate-400">Set via the <code>RESEND_API_KEY</code> environment variable.</p>
           </div>
           <div>
             <label className="label">From address</label>

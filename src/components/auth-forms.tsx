@@ -4,13 +4,33 @@ import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Script from 'next/script';
 
-export function LoginForm() {
-  const router = useRouter();
+export function LoginForm({ defaultCallback = '/dashboard', showRoleSelect = true }: { defaultCallback?: string; showRoleSelect?: boolean }) {
   const params = useSearchParams();
-  const callbackUrl = params.get('callbackUrl') || '/dashboard';
+  const [role, setRole] = useState<'parent' | 'caseworker' | 'agency'>('parent');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  /** Resolve where to send the user after a successful sign-in. */
+  async function resolveDestination(): Promise<string | null> {
+    const explicit = params.get('callbackUrl');
+    if (explicit) return explicit; // honour a deep link they were heading to
+    if (!showRoleSelect) return defaultCallback;
+    if (role === 'parent') return '/dashboard';
+    // Case Worker / Agency → the agency portal. Verify the account actually has
+    // agency access (an Agency selection may be creating a new one).
+    try {
+      const r = await fetch('/api/auth/portals');
+      const p = (await r.json()) as { agencyRole: string | null };
+      if (p.agencyRole) return '/agency';
+      if (role === 'agency') return '/agency'; // no agency yet → create one
+      setError('This account isn’t registered as a case worker. Ask your agency admin to add you, or sign in as a Foster Parent.');
+      return null;
+    } catch {
+      return '/agency';
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -23,17 +43,30 @@ export function LoginForm() {
       totp: String(form.get('totp') || ''),
       redirect: false,
     });
-    setLoading(false);
     if (res?.error) {
+      setLoading(false);
       setError('Sign-in failed. Check your email and password — and if two-factor is enabled, enter your 6-digit authenticator code below.');
       return;
     }
-    router.push(callbackUrl);
-    router.refresh();
+    const dest = await resolveDestination();
+    if (!dest) { setLoading(false); return; } // role mismatch — message already shown
+    // Hard navigation (not router.push) so the new session fully replaces the
+    // previous one — fixes "still signed in as the previous user" after switching.
+    window.location.href = dest;
   }
 
   return (
     <form method="post" onSubmit={onSubmit} className="space-y-4">
+      {showRoleSelect && (
+        <div>
+          <label className="label" htmlFor="role">I’m signing in as</label>
+          <select id="role" value={role} onChange={(e) => setRole(e.target.value as typeof role)} className="input">
+            <option value="parent">Foster Parent</option>
+            <option value="caseworker">Case Worker</option>
+            <option value="agency">Agency</option>
+          </select>
+        </div>
+      )}
       <div>
         <label className="label" htmlFor="email">Email</label>
         <input id="email" name="email" type="email" autoComplete="email" required className="input" />
@@ -194,9 +227,10 @@ export function VerifyEmailForm({ token }: { token: string }) {
 }
 
 export function RegisterForm() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Inlined at build; when set, the Turnstile CAPTCHA widget renders below.
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -208,6 +242,8 @@ export function RegisterForm() {
       email: String(form.get('email')),
       password: String(form.get('password')),
       householdName: String(form.get('householdName')),
+      // Populated by the Turnstile widget when CAPTCHA is enabled (else empty).
+      captchaToken: String(form.get('cf-turnstile-response') || ''),
     };
     const res = await fetch('/api/auth/register', {
       method: 'POST',
@@ -221,10 +257,10 @@ export function RegisterForm() {
       setLoading(false);
       return;
     }
-    // Auto sign-in after successful registration.
+    // Auto sign-in after successful registration, then hard-navigate so the new
+    // session is fully applied.
     await signIn('credentials', { email: payload.email, password: payload.password, redirect: false });
-    router.push('/dashboard');
-    router.refresh();
+    window.location.href = '/dashboard';
   }
 
   return (
@@ -246,6 +282,12 @@ export function RegisterForm() {
         <input id="password" name="password" type="password" autoComplete="new-password" required className="input" />
         <p className="mt-1 text-xs text-slate-500">At least 10 characters with upper, lower and a number.</p>
       </div>
+      {turnstileSiteKey && (
+        <>
+          <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+          <div className="cf-turnstile" data-sitekey={turnstileSiteKey} />
+        </>
+      )}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button type="submit" disabled={loading} className="btn-primary w-full">
         {loading ? 'Creating…' : 'Create account'}

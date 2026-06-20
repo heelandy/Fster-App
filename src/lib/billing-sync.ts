@@ -4,6 +4,12 @@ import { prisma } from './prisma';
 import { PLANS } from './plans';
 import { getStripe, isStripeConfigured } from './stripe';
 import { getStripePriceId } from './config';
+import { sendPlanChanged } from './email';
+
+/** The plan the customer effectively has (canceled/unpaid statuses read as FREE). */
+function effectiveLabel(tier: PlanTier, status: SubscriptionStatus): PlanTier {
+  return (['CANCELED', 'UNPAID', 'INCOMPLETE'] as SubscriptionStatus[]).includes(status) ? 'FREE' : tier;
+}
 
 const GRACE_DAYS = 7;
 
@@ -44,14 +50,24 @@ export async function syncSubscription(sub: Stripe.Subscription) {
   const householdId = sub.metadata?.householdId;
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
 
+  const select = {
+    id: true,
+    owner: { select: { email: true } },
+    subscription: { select: { tier: true, status: true } },
+  } as const;
   const household = householdId
-    ? await prisma.household.findUnique({ where: { id: householdId }, select: { id: true } })
-    : await prisma.household.findUnique({ where: { stripeCustomerId: customerId }, select: { id: true } });
+    ? await prisma.household.findUnique({ where: { id: householdId }, select })
+    : await prisma.household.findUnique({ where: { stripeCustomerId: customerId }, select });
   if (!household) return;
 
   const { status, graceUntil } = mapStatus(sub.status);
   const tier = resolveTier(sub);
   const interval = sub.items.data[0]?.price.recurring?.interval === 'year' ? 'ANNUAL' : 'MONTHLY';
+
+  // Detect an effective plan change so we can email the owner exactly once.
+  const prev = household.subscription;
+  const oldLabel = prev ? effectiveLabel(prev.tier, prev.status) : 'FREE';
+  const newLabel = effectiveLabel(tier, status);
 
   await prisma.subscription.upsert({
     where: { householdId: household.id },
@@ -79,6 +95,11 @@ export async function syncSubscription(sub: Stripe.Subscription) {
       graceUntil,
     },
   });
+
+  // Notify the owner on a real plan change (best-effort; never blocks the sync).
+  if (oldLabel !== newLabel && household.owner?.email) {
+    await sendPlanChanged(household.owner.email, oldLabel, newLabel).catch(() => {});
+  }
 }
 
 /** Mark a subscription canceled (access drops to FREE via effectiveTier). */
@@ -175,9 +196,16 @@ export async function reconcileFromStripe(householdId: string): Promise<void> {
   if (!(await isStripeConfigured())) return;
   const household = await prisma.household.findUnique({
     where: { id: householdId },
-    select: { id: true, stripeCustomerId: true, owner: { select: { email: true } } },
+    select: {
+      id: true,
+      stripeCustomerId: true,
+      owner: { select: { email: true } },
+      subscription: { select: { comped: true } },
+    },
   });
   if (!household) return;
+  // Admin-granted (comped) plans are managed manually — never overwrite from Stripe.
+  if (household.subscription?.comped) return;
 
   const stripe = await getStripe();
 

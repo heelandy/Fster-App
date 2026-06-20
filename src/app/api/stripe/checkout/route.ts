@@ -72,12 +72,24 @@ export function POST(req: Request) {
         discounts = [{ promotion_code: pc.id }];
       }
 
+      // Stripe Tax (off by default). Only enable AFTER activating Tax in the
+      // Stripe Dashboard — it needs a billing address to compute tax, so we
+      // collect it and save it back to the customer.
+      const taxOpts = env.STRIPE_TAX_ENABLED
+        ? {
+            automatic_tax: { enabled: true },
+            billing_address_collection: 'required' as const,
+            customer_update: { address: 'auto' as const },
+          }
+        : {};
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         customer: customerId,
         line_items: [{ price: priceId, quantity: 1 }],
         // Stripe rejects allow_promotion_codes together with discounts.
         ...(discounts ? { discounts } : { allow_promotion_codes: true }),
+        ...taxOpts,
         subscription_data: { metadata: { householdId: household.id, tier } },
         success_url: `${env.APP_URL}/billing?status=success`,
         cancel_url: `${env.APP_URL}/billing?status=cancelled`,

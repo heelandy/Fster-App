@@ -25,13 +25,18 @@ export default async function LicensingPage() {
   if (!can(ctx, 'licensing:read')) return <AccessDenied />;
   if (!planHasFeature(ctx.tier, 'licensingTracker')) return <FeatureLocked feature="Licensing Tracker" />;
   return (
-    <CrudResource
-      title="Licensing & Compliance"
-      endpoint="/api/licensing"
-      fields={fields}
-      columns={columns}
-      canWrite={can(ctx, 'licensing:write')}
-      emptyText="No licensing requirements tracked yet."
-    />
+    <div>
+      <div className="mb-3 flex justify-end">
+        <a href="/api/licensing/pdf" className="btn-secondary text-sm">Download PDF</a>
+      </div>
+      <CrudResource
+        title="Licensing & Compliance"
+        endpoint="/api/licensing"
+        fields={fields}
+        columns={columns}
+        canWrite={can(ctx, 'licensing:write')}
+        emptyText="No licensing requirements tracked yet."
+      />
+    </div>
   );
 }

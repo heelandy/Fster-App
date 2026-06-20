@@ -66,13 +66,16 @@ export default async function ChildDetailPage({ params }: { params: { id: string
       </Link>
 
       <div className="card mt-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">{name}</h1>
             <span className="badge mt-1 bg-brand-100 text-brand-800">
               {child.placementStatus.replaceAll('_', ' ')}
             </span>
           </div>
+          {ctx.role !== 'BABYSITTER' && (
+            <a href={`/api/children/${child.id}/report/pdf`} className="btn-secondary shrink-0 text-sm">Court report (PDF)</a>
+          )}
         </div>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="First name" value={child.firstName} />

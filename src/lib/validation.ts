@@ -38,6 +38,8 @@ export const registerSchema = z.object({
   email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
   password,
   householdName: shortText,
+  // Cloudflare Turnstile token — only required/verified when CAPTCHA is configured.
+  captchaToken: z.string().max(4000).optional(),
 });
 
 export const loginSchema = z.object({
@@ -234,10 +236,8 @@ export const ticketStatusSchema = z.object({
 // All fields optional: only the keys present are updated. Empty string clears a
 // value (falls back to env). Secrets are stored encrypted at rest.
 export const integrationConfigSchema = z.object({
-  stripeSecretKey: z.string().trim().max(255).optional(),
-  stripePublishableKey: z.string().trim().max(255).optional(),
-  stripeWebhookSecret: z.string().trim().max(255).optional(),
-  resendApiKey: z.string().trim().max(255).optional(),
+  // Secret keys are intentionally NOT here — they're env-only and can't be set
+  // through the app (so they're never exposed in a UI or accepted over the API).
   emailFrom: z.string().trim().max(255).optional(),
   prices: z
     .record(
@@ -303,5 +303,81 @@ export const adminRefundSchema = z.object({
 export const adminCreditSchema = z.object({
   householdId: z.string().cuid(),
   amountCents: z.coerce.number().int().min(1).max(100_000_00),
+  note: z.string().trim().max(500).optional(),
+});
+
+// ── Multi-agency platform ──
+export const agencyCreateSchema = z.object({
+  name: shortText,
+});
+export const agencyStaffSchema = z.object({
+  email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
+  role: z.enum(['AGENCY_ADMIN', 'CASE_WORKER', 'AGENCY_VIEWER']),
+});
+export const agencyLinkHomeSchema = z.object({
+  // Link a foster home to the agency by its owner's email.
+  email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
+});
+// Create a NEW foster home for a foster parent (must be an existing user).
+export const agencyCreateHomeSchema = z.object({
+  homeName: shortText,
+  fosterParentEmail: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
+});
+// Assign/place a child into a home — child fields + an optional trial end date.
+export const agencyAssignChildSchema = childSchema.extend({
+  trialEndDate: z.coerce.date().optional(),
+});
+// Submit a licensing/compliance item for the foster parent to complete.
+export const agencyLicensingSchema = z.object({
+  name: shortText,
+  category: optionalShort,
+  dueDate: optionalDate,
+});
+export const agencyPlacementUpdateSchema = z.object({
+  status: z.enum(['ACTIVE', 'REUNIFIED', 'ENDED']),
+});
+// Record a caseworker/agency visit to a foster home (home-level record).
+export const agencyVisitSchema = z.object({
+  visitDate: z.coerce.date(),
+  visitType: optionalShort,
+  summary: longText,
+});
+// A foster parent accepts (Y) or declines (N) an assigned placement.
+export const placementRespondSchema = z.object({
+  decision: z.enum(['ACCEPTED', 'DECLINED']),
+});
+// Agency sets a home's approval/suspension status.
+export const agencyHomeStatusSchema = z.object({
+  fosterStatus: z.enum(['PENDING', 'APPROVED', 'SUSPENDED']),
+});
+// Agency moves a child from one of its homes to another of its homes.
+export const agencyTransferSchema = z.object({
+  childId: z.string().trim().min(1).max(40),
+  toHomeId: z.string().trim().min(1).max(40),
+});
+// Agency broadcasts an announcement to its homes.
+export const announcementSchema = z.object({
+  title: shortText,
+  body: longText,
+});
+// Foster parent reports an incident about a placement.
+export const incidentCreateSchema = z.object({
+  title: shortText,
+  description: longText,
+  severity: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('LOW'),
+  childId: optionalShort,
+});
+// Agency case worker reviews / escalates / resolves an incident.
+export const incidentUpdateSchema = z.object({
+  status: z.enum(['REPORTED', 'UNDER_REVIEW', 'ESCALATED', 'RESOLVED', 'CLOSED']),
+  resolution: longText,
+});
+
+// Manually grant/override a household's plan (comp / grant / scholarship account),
+// resolved by the owner's email. A paid tier is "comped" (Stripe reconcile skips
+// it); granting FREE clears the comp and hands control back to Stripe.
+export const adminGrantPlanSchema = z.object({
+  email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
+  tier: z.enum(['FREE', 'FAMILY', 'PRO', 'AGENCY']),
   note: z.string().trim().max(500).optional(),
 });

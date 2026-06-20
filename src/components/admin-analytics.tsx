@@ -7,9 +7,12 @@ interface Analytics {
   series: Point[];
   kpis: {
     dau: number; wau: number; mau: number; totalUsers: number;
-    newUsers30d: number; activeSubs: number; canceled30d: number; churnRatePct: number;
+    newUsers30d: number; activeSubs: number; payingSubs: number; canceled30d: number; churnRatePct: number;
+    mrrCents: number; arrCents: number; arpuCents: number;
   };
 }
+
+const money = (cents: number) => `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 function Kpi({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
   return (
@@ -83,10 +86,15 @@ export function AdminAnalytics() {
         <Kpi label="Active this week (WAU)" value={kpis.wau} />
         <Kpi label="Active this month (MAU)" value={kpis.mau} />
         <Kpi label="Total users" value={kpis.totalUsers} sub={`${kpis.newUsers30d} new in 30d`} />
-        <Kpi label="Active subscriptions" value={kpis.activeSubs} />
+        <Kpi label="Active subscriptions" value={kpis.activeSubs} sub={`${kpis.payingSubs} paying`} />
         <Kpi label="Canceled (30d)" value={kpis.canceled30d} />
         <Kpi label="Churn rate (30d)" value={`${kpis.churnRatePct}%`} />
         <Kpi label="Stickiness (DAU/MAU)" value={kpis.mau ? `${Math.round((kpis.dau / kpis.mau) * 100)}%` : '—'} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Kpi label="MRR" value={money(kpis.mrrCents)} sub="monthly recurring revenue" />
+        <Kpi label="ARR" value={money(kpis.arrCents)} sub="annual recurring revenue" />
+        <Kpi label="ARPU" value={money(kpis.arpuCents)} sub="avg revenue / paying account / mo" />
       </div>
       <BarChart data={series} accessor={(p) => p.signups} color="#b45309" label="New sign-ups per day (30d)" />
       <BarChart data={series} accessor={(p) => p.activeUsers} color="#0ea5e9" label="Active users per day (30d)" />

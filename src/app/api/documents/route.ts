@@ -4,6 +4,7 @@ import { handle, json, Errors } from '@/lib/http';
 import { mutationGuard, enforceRateLimit } from '@/lib/api';
 import { documentMetaSchema } from '@/lib/validation';
 import { saveFile, isAllowedMime } from '@/lib/storage';
+import { scanUpload } from '@/lib/av-scan';
 import { assertChildInHousehold } from '@/lib/scope';
 import { RateLimits } from '@/lib/rate-limit';
 import { env } from '@/lib/env';
@@ -67,6 +68,11 @@ export function POST(req: Request) {
     if (meta.childId) await assertChildInHousehold(ctx, meta.childId);
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Optional malware/AV scan (no-op unless AV_SCAN_URL is configured).
+    const scan = await scanUpload(buffer, file.name, file.type);
+    if (!scan.clean) throw Errors.badRequest(`Upload rejected: ${scan.reason ?? 'failed the malware scan'}.`);
+
     const saved = await saveFile(buffer, file.type);
 
     const doc = await prisma.document.create({

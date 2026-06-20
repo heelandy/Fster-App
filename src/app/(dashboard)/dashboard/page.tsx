@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { requireHousehold, can } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
+import { PendingPlacements } from '@/components/pending-placements';
+import { IncidentReporter } from '@/components/incident-reporter';
 
 function StatCard({ label, value, href }: { label: string; value: string | number; href?: string }) {
   const inner = (
@@ -16,7 +18,18 @@ export default async function DashboardOverview() {
   const ctx = await requireHousehold();
   const hh = ctx.householdId;
 
-  const [childCount, upcoming, activeMeds] = await Promise.all([
+  // Agency context for this home (announcements + recent oversight visits).
+  const home = await prisma.household.findUnique({ where: { id: hh }, select: { agencyId: true } });
+  const [announcements, recentVisits] = await Promise.all([
+    home?.agencyId
+      ? prisma.announcement.findMany({ where: { agencyId: home.agencyId }, select: { id: true, title: true, body: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 5 })
+      : [],
+    home?.agencyId
+      ? prisma.visit.findMany({ where: { householdId: hh }, select: { id: true, visitType: true, summary: true, visitDate: true }, orderBy: { visitDate: 'desc' }, take: 5 })
+      : [],
+  ]);
+
+  const [childCount, upcoming, activeMeds, pending] = await Promise.all([
     can(ctx, 'children:read') ? prisma.childProfile.count({ where: { householdId: hh } }) : 0,
     can(ctx, 'appointments:read')
       ? prisma.appointment.findMany({
@@ -29,12 +42,44 @@ export default async function DashboardOverview() {
     can(ctx, 'medications:read')
       ? prisma.medication.count({ where: { householdId: hh, isActive: true } })
       : 0,
+    // Children a case worker assigned to this home, awaiting the foster parent's Y/N.
+    can(ctx, 'children:write')
+      ? prisma.placement.findMany({
+          where: { parentResponse: 'PENDING', child: { householdId: hh } },
+          select: { id: true, endDate: true, agency: true, child: { select: { firstName: true, preferredName: true } } },
+          orderBy: { placementDate: 'desc' },
+        })
+      : [],
   ]);
+
+  const pendingItems = pending.map((p) => ({
+    placementId: p.id,
+    childName: p.child.preferredName || p.child.firstName,
+    trialEndDate: p.endDate ? p.endDate.toISOString() : null,
+    agency: p.agency,
+  }));
 
   return (
     <div>
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Welcome back 👋</h1>
       <p className="mb-6 text-sm text-slate-600">Here’s what’s happening in {ctx.householdName}.</p>
+
+      <PendingPlacements items={pendingItems} />
+
+      {announcements.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">From your agency</h2>
+          <div className="space-y-2">
+            {announcements.map((a) => (
+              <div key={a.id} className="card bg-brand-50">
+                <p className="font-medium text-slate-900">{a.title}</p>
+                <p className="text-xs text-slate-500">{a.createdAt.toLocaleDateString()}</p>
+                {a.body && <p className="mt-1 text-sm text-slate-700">{a.body}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {can(ctx, 'children:read') && <StatCard label="Children" value={childCount} href="/dashboard/children" />}
@@ -71,6 +116,27 @@ export default async function DashboardOverview() {
           </div>
         </div>
       )}
+
+      {recentVisits.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Recent caseworker visits</h2>
+          <div className="card p-0">
+            <ul className="divide-y divide-slate-100">
+              {recentVisits.map((v) => (
+                <li key={v.id} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="font-medium text-slate-800">{v.visitType || 'Visit'}</p>
+                    {v.summary && <p className="text-xs text-slate-500">{v.summary}</p>}
+                  </div>
+                  <span className="text-sm text-slate-600">{v.visitDate.toLocaleDateString()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {can(ctx, 'incidents:write') && <IncidentReporter />}
 
       {ctx.role === 'BABYSITTER' && (
         <div className="mt-8 card bg-amber-50">

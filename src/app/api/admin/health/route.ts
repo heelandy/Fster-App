@@ -1,11 +1,12 @@
 import { promises as fs, constants as fsConstants } from 'fs';
 import path from 'path';
+import os from 'os';
 import { prisma } from '@/lib/prisma';
 import { requireAdminPermission } from '@/lib/authz';
 import { handle, json } from '@/lib/http';
 import { env } from '@/lib/env';
 import { isStripeConfigured, isEmailConfigured } from '@/lib/config';
-import { getConfigWarnings } from '@/lib/config-check';
+import { getConfigWarnings, getIntegrationWarnings } from '@/lib/config-check';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic'; // auth-gated, per-request — never prerender
@@ -78,11 +79,20 @@ export function GET() {
     const storage = await measureDir(path.resolve(env.FILE_STORAGE_DIR));
     const mem = process.memoryUsage();
 
-    const [openTickets, unreadNotifs, stripeOk, emailOk] = await Promise.all([
+    // Process CPU usage sampled over a short window → rough percent of one core.
+    const cpuStart = process.cpuUsage();
+    const tStart = Date.now();
+    await new Promise((r) => setTimeout(r, 100));
+    const cpuDelta = process.cpuUsage(cpuStart);
+    const elapsedUs = Math.max(1, (Date.now() - tStart) * 1000);
+    const cpuPercent = Math.round(((cpuDelta.user + cpuDelta.system) / elapsedUs) * 100);
+
+    const [openTickets, unreadNotifs, stripeOk, emailOk, integrationWarnings] = await Promise.all([
       prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'PENDING'] } } }),
       prisma.notification.count({ where: { isRead: false } }),
       isStripeConfigured(),
       isEmailConfigured(),
+      getIntegrationWarnings(),
     ]);
 
     return json({
@@ -100,6 +110,9 @@ export function GET() {
         uptimeSeconds: Math.round(process.uptime()),
         rssBytes: mem.rss,
         heapUsedBytes: mem.heapUsed,
+        cpuPercent,
+        cpuCores: os.cpus().length,
+        loadAvg1m: Math.round(os.loadavg()[0] * 100) / 100, // 0 on Windows
         platform: process.platform,
         env: process.env.NODE_ENV ?? 'unknown',
       },
@@ -109,7 +122,7 @@ export function GET() {
         cronConfigured: env.CRON_SECRET.length > 0,
       },
       queues: { openTickets, unreadNotifications: unreadNotifs },
-      configWarnings: getConfigWarnings(),
+      configWarnings: [...getConfigWarnings(), ...integrationWarnings],
       checkedAt: new Date().toISOString(),
     });
   });

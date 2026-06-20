@@ -188,6 +188,34 @@ async function main() {
     await resetDemoAuth(agencyEmail, 'Agency12345');
     console.log('• Demo agency exists — auth reset (Agency12345)');
   }
+
+  // 5) Multi-agency platform: an agency TENANT ("Demo Foster Agency") overseeing
+  //    the agency demo account's homes, with a case worker.
+  const agencyOwner = await prisma.user.findUnique({ where: { email: agencyEmail }, select: { id: true } });
+  if (agencyOwner) {
+    const cw = await prisma.user.upsert({
+      where: { email: 'caseworker@example.com' },
+      update: {},
+      create: { email: 'caseworker@example.com', name: 'Demo Case Worker', passwordHash: await bcrypt.hash('Worker12345', 12), emailVerifiedAt: new Date() },
+    });
+    await resetDemoAuth('caseworker@example.com', 'Worker12345');
+
+    let org = await prisma.agency.findFirst({ where: { name: 'Demo Foster Agency' } });
+    if (!org) org = await prisma.agency.create({ data: { name: 'Demo Foster Agency' } });
+    await prisma.agencyMember.upsert({
+      where: { agencyId_userId: { agencyId: org.id, userId: agencyOwner.id } },
+      update: { role: 'AGENCY_ADMIN' },
+      create: { agencyId: org.id, userId: agencyOwner.id, role: 'AGENCY_ADMIN' },
+    });
+    await prisma.agencyMember.upsert({
+      where: { agencyId_userId: { agencyId: org.id, userId: cw.id } },
+      update: { role: 'CASE_WORKER' },
+      create: { agencyId: org.id, userId: cw.id, role: 'CASE_WORKER' },
+    });
+    // Link the agency demo account's homes to the org for oversight.
+    await prisma.household.updateMany({ where: { ownerId: agencyOwner.id }, data: { agencyId: org.id } });
+    console.log('✓ Agency tenant seeded: Demo Foster Agency (admin agency@example.com; caseworker@example.com / Worker12345)');
+  }
 }
 
 main()

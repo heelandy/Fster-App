@@ -66,6 +66,37 @@ enum PlacementStatus {
   ENDED
 }
 
+// A foster parent's answer to a child the agency assigned to their home.
+enum PlacementResponse {
+  PENDING // awaiting the foster parent's decision
+  ACCEPTED // "Y" — foster parent accepted the placement
+  DECLINED // "N" — foster parent declined the placement
+}
+
+// Agency oversight status of a foster home (does NOT gate the foster parent's own
+// app access — it is the agency's approval/suspension record for the home).
+enum FosterStatus {
+  PENDING // application under review
+  APPROVED // approved to foster
+  SUSPENDED // temporarily suspended by the agency
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Incident lifecycle: foster parent reports → case worker reviews → agency
+// escalates / resolves / closes.
+enum IncidentStatus {
+  REPORTED
+  UNDER_REVIEW
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
 enum AppointmentType {
   DOCTOR
   THERAPY
@@ -186,6 +217,7 @@ model User {
   supportTickets  SupportTicket[]
   supportMessages SupportMessage[]   @relation("SupportAuthor")
   sessions        UserSession[]
+  agencyMemberships AgencyMember[]
 
   @@index([email])
 }
@@ -212,6 +244,12 @@ model Household {
   name            String
   ownerId         String
   owner           User     @relation("HouseholdOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  // A foster home may be overseen by an agency (multi-agency platform). The home
+  // owner still owns/manages it; the agency gets scoped oversight (see lib/agency).
+  agencyId        String?
+  agency          Agency?  @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  // Agency's approval/suspension record for this home (oversight metadata only).
+  fosterStatus    FosterStatus @default(APPROVED)
   stripeCustomerId String? @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -229,9 +267,44 @@ model Household {
   checklists   Checklist[]
   licensing    LicensingRequirement[]
   trainingHours TrainingHour[]
+  visits       Visit[]
+  incidents    Incident[]
   subscription Subscription?
 
   @@index([ownerId])
+  @@index([agencyId])
+}
+
+/// Multi-agency platform: an organization that oversees multiple foster homes and
+/// employs staff (agency admins, case workers). Oversight is scoped to the
+/// agency's own homes — staff never see homes outside their agency.
+model Agency {
+  id         String         @id @default(cuid())
+  name       String
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  members    AgencyMember[]
+  households Household[]
+  announcements Announcement[]
+}
+
+enum AgencyRole {
+  AGENCY_ADMIN // manage staff, homes, placements; full oversight
+  CASE_WORKER // view homes/children, manage placements + case notes
+  AGENCY_VIEWER // read-only oversight
+}
+
+model AgencyMember {
+  id        String     @id @default(cuid())
+  agencyId  String
+  agency    Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AgencyRole @default(CASE_WORKER)
+  createdAt DateTime   @default(now())
+
+  @@unique([agencyId, userId])
+  @@index([userId])
 }
 
 model HouseholdMember {
@@ -283,6 +356,7 @@ model ChildProfile {
   contacts     Contact[]
   routines     Routine[]
   checklists   Checklist[]
+  visits       Visit[]
 
   @@index([householdId])
 }
@@ -296,9 +370,66 @@ model Placement {
   endDate       DateTime?
   agency        String?
   notes         String?
+  // Agency placements land with the foster parent for acceptance: PENDING until
+  // they accept (→ TRIAL_HOME_VISIT) or decline (→ ENDED). The Y/N is recorded here.
+  parentResponse PlacementResponse @default(PENDING)
+  respondedAt    DateTime?
   createdAt     DateTime        @default(now())
 
   @@index([childId])
+}
+
+/// A recorded visit to a foster home — a case-worker home visit, court date,
+/// school meeting, etc. Logged by agency staff; visible to the foster parent.
+model Visit {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  child       ChildProfile? @relation(fields: [childId], references: [id], onDelete: SetNull)
+  agencyId    String?
+  visitType   String? // Home visit, Court, School, Medical, Other
+  visitDate   DateTime
+  summary     String?
+  createdById String?
+  createdAt   DateTime      @default(now())
+
+  @@index([householdId, visitDate])
+}
+
+/// An incident a foster parent reports about a placement. The agency's case
+/// worker reviews it and escalates / resolves / closes it (incident workflow).
+model Incident {
+  id           String           @id @default(cuid())
+  householdId  String
+  household    Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId      String?
+  agencyId     String?
+  reportedById String?
+  title        String
+  description  String?
+  severity     IncidentSeverity @default(LOW)
+  status       IncidentStatus   @default(REPORTED)
+  resolution   String? // case worker's review / resolution note
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([householdId, createdAt])
+  @@index([agencyId, status])
+}
+
+/// An announcement an agency broadcasts to its foster homes (shown on the foster
+/// parent's dashboard). Agency → its homes, one-way.
+model Announcement {
+  id          String   @id @default(cuid())
+  agencyId    String
+  agency      Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  title       String
+  body        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([agencyId, createdAt])
 }
 
 // ───────────────────────────── Appointments ─────────────────────────────
@@ -586,6 +717,10 @@ model Subscription {
   graceUntil           DateTime?
   cancelAtPeriodEnd    Boolean            @default(false)
   trialEndsAt          DateTime?
+  // Admin-granted plan (comped / grant / scholarship / government-funded). When
+  // true, the plan is set manually and the Stripe reconcile leaves it untouched.
+  comped               Boolean            @default(false)
+  compNote             String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 

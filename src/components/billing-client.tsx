@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { CountdownRedirect } from './countdown-redirect';
+import { useState } from 'react';
 
 interface PlanCard {
   tier: string;
@@ -35,49 +34,6 @@ export function BillingClient({
   const [interval, setInterval] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [awaitingPayment, setAwaitingPayment] = useState(false);
-  const [checking, setChecking] = useState(false);
-
-  // While a payment tab is open, pull the subscription from Stripe every few
-  // seconds (webhook-free). As soon as the plan changes, send the user to the
-  // dashboard — that's the post-purchase auto-redirect + upgrade.
-  useEffect(() => {
-    if (!awaitingPayment) return;
-    let live = true;
-    let tries = 0;
-    // NOTE: `setInterval` is shadowed by the billing-interval state setter above,
-    // so call the timer functions via `window.` explicitly.
-    const id = window.setInterval(async () => {
-      tries += 1;
-      try {
-        const res = await fetch('/api/stripe/sync', { method: 'POST' });
-        if (res.ok) {
-          const d = await res.json();
-          if (live && d.tier && d.tier !== currentTier) {
-            window.clearInterval(id);
-            window.location.href = '/dashboard?upgraded=1';
-            return;
-          }
-        }
-      } catch {
-        /* keep polling */
-      }
-      if (tries >= 30) window.clearInterval(id); // give up after ~2 min
-    }, 4000);
-    return () => { live = false; window.clearInterval(id); };
-  }, [awaitingPayment, currentTier]);
-
-  async function checkNow() {
-    setChecking(true);
-    try {
-      const res = await fetch('/api/stripe/sync', { method: 'POST' });
-      const d = await res.json().catch(() => ({}));
-      if (res.ok && d.tier && d.tier !== currentTier) { window.location.href = '/dashboard?upgraded=1'; return; }
-    } catch { /* ignore */ }
-    setChecking(false);
-    window.location.reload();
-  }
-
   async function choose(tier: string) {
     setBusy(tier);
     setError(null);
@@ -87,17 +43,25 @@ export function BillingClient({
       body: JSON.stringify({ tier, interval }),
     });
     const d = await res.json().catch(() => ({}));
-    setBusy(null);
     if (res.ok && d.url) {
-      // Open payment in a NEW tab so the app stays put; the payment tab shows a
-      // "you can close this" confirmation on return. If the popup is blocked,
-      // fall back to a same-tab redirect.
-      const win = window.open(d.url, '_blank', 'noopener,noreferrer');
-      if (win) setAwaitingPayment(true);
-      else window.location.href = d.url;
+      // Redirect to Stripe Checkout in the same tab — most reliable. Stripe sends
+      // the user back to /billing?status=success, which reconciles + auto-returns.
+      window.location.href = d.url;
     } else {
+      setBusy(null);
       setError(d?.error || 'Could not start checkout.');
     }
+  }
+
+  async function cancelPlan() {
+    if (!confirm('Cancel your plan and switch to Free now? You’ll lose paid features immediately.')) return;
+    setBusy('cancel');
+    setError(null);
+    const res = await fetch('/api/stripe/cancel', { method: 'POST' });
+    if (res.ok) { window.location.href = '/billing'; return; }
+    setBusy(null);
+    const d = await res.json().catch(() => ({}));
+    setError(d?.error || 'Could not cancel the plan.');
   }
 
   async function manage() {
@@ -140,20 +104,15 @@ export function BillingClient({
               {busy === 'portal' ? 'Opening…' : 'Manage billing'}
             </button>
           )}
+          {currentTier !== 'FREE' && (
+            <button onClick={cancelPlan} disabled={busy === 'cancel'} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+              {busy === 'cancel' ? 'Cancelling…' : 'Cancel plan'}
+            </button>
+          )}
         </div>
       </div>
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
-      {awaitingPayment && (
-        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          💳 Payment opened in a new tab. Complete it there — once it’s done you’ll be taken to your
-          dashboard automatically.{' '}
-          <button onClick={checkNow} disabled={checking} className="font-medium underline disabled:opacity-50">
-            {checking ? 'Checking…' : 'I’ve paid — check now'}
-          </button>
-        </div>
-      )}
 
       {currentTier !== 'FREE' && (
         <div className="card mb-6">

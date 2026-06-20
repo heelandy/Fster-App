@@ -12,7 +12,12 @@ import { getToken } from 'next-auth/jwt';
  */
 
 const PUBLIC_API_PREFIXES = ['/api/auth', '/api/stripe/webhook', '/api/health', '/api/cron', '/api/invites'];
-const PROTECTED_PAGE_PREFIXES = ['/dashboard', '/admin', '/billing', '/account', '/support'];
+const PROTECTED_PAGE_PREFIXES = ['/dashboard', '/admin', '/agency', '/billing', '/account', '/support'];
+
+/** Segment-aware prefix match so e.g. "/agency-login" does NOT match "/agency". */
+function underPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(prefix + '/');
+}
 
 function buildCsp(nonce: string, isHttps: boolean): string {
   const isDev = process.env.NODE_ENV !== 'production';
@@ -21,16 +26,16 @@ function buildCsp(nonce: string, isHttps: boolean): string {
   // so 'self' chunk scripts load). Production uses the strict nonce + strict-dynamic
   // policy with no eval.
   const scriptSrc = isDev
-    ? `script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}' https://js.stripe.com`
-    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://js.stripe.com`;
+    ? `script-src 'self' 'unsafe-eval' 'unsafe-inline' 'nonce-${nonce}' https://js.stripe.com https://challenges.cloudflare.com`
+    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://js.stripe.com https://challenges.cloudflare.com`;
   const directives = [
     `default-src 'self'`,
     scriptSrc,
     `style-src 'self' 'unsafe-inline'`, // Tailwind / Next inject styles inline
     `img-src 'self' data: blob:`,
     `font-src 'self'`,
-    `connect-src 'self' https://api.stripe.com`,
-    `frame-src https://js.stripe.com https://hooks.stripe.com`,
+    `connect-src 'self' https://api.stripe.com https://challenges.cloudflare.com`,
+    `frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com`,
     `object-src 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
@@ -58,9 +63,9 @@ export async function middleware(req: NextRequest) {
 
   const isApi = pathname.startsWith('/api');
   const isPublicApi = PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p));
-  const isProtectedPage = PROTECTED_PAGE_PREFIXES.some((p) => pathname.startsWith(p));
+  const isProtectedPage = PROTECTED_PAGE_PREFIXES.some((p) => underPrefix(pathname, p));
   const needsAuth = (isApi && !isPublicApi) || isProtectedPage;
-  const needsAdmin = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
+  const needsAdmin = underPrefix(pathname, '/admin') || pathname.startsWith('/api/admin');
 
   if (needsAuth) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -68,7 +73,13 @@ export async function middleware(req: NextRequest) {
       if (isApi) {
         return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
       }
-      const loginUrl = new URL('/login', req.url);
+      // Route to the matching branded sign-in page (separate agency / admin logins).
+      const loginPath = underPrefix(pathname, '/agency') || pathname.startsWith('/api/agency')
+        ? '/agency-login'
+        : needsAdmin
+          ? '/admin-login'
+          : '/login';
+      const loginUrl = new URL(loginPath, req.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);
     }
@@ -82,6 +93,11 @@ export async function middleware(req: NextRequest) {
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set('content-security-policy', csp);
+  // Never cache authenticated pages, so a back-button after sign-out can't reveal
+  // a previously-rendered protected page (the re-request hits the auth gate).
+  if (isProtectedPage) {
+    res.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+  }
   // Clear any leftover active-home cookie on the auth pages so a fresh sign-in
   // never inherits the previous user's selected household on a shared browser.
   if (pathname === '/login' || pathname === '/register') {
