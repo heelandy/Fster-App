@@ -4,6 +4,7 @@ import { handle } from '@/lib/http';
 import { buildLicensingPdf } from '@/lib/pdf';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /** Download the household's licensing / compliance list as a printable PDF. */
 export function GET() {

@@ -2,19 +2,29 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-type Tab = 'overview' | 'homes' | 'staff' | 'incidents' | 'announcements';
+type Tab = 'overview' | 'homes' | 'staff' | 'incidents' | 'announcements' | 'reports';
 
 interface Totals { homes: number; staff: number; children: number; complianceAlerts: number; activePlacements: number; pendingPlacements: number; availableHomes: number; openIncidents: number }
 interface HomeRow { id: string; name: string; fosterStatus: string; ownerName: string | null; ownerEmail: string; children: number; complianceAlerts: number }
 interface StaffRow { id: string; role: string; name: string | null; email: string; isYou: boolean }
 interface IncidentRow { id: string; title: string; description: string | null; severity: string; status: string; resolution: string | null; createdAt: string; household: { id: string; name: string } }
 interface AnnouncementRow { id: string; title: string; body: string | null; createdAt: string }
+interface ReportData {
+  placementsByStatus: Record<string, number>;
+  incidentsByStatus: Record<string, number>;
+  goalsByStatus: Record<string, number>;
+  visits: { scheduled: number; completed: number };
+  complianceAlerts: number;
+  staffPerformance: { name: string; role: string; placements: number; visits: number }[];
+}
 interface HomeDetail {
   home: { id: string; name: string; fosterStatus: string; ownerName: string | null; ownerEmail: string | null };
   children: { id: string; firstName: string; preferredName: string | null; placementStatus: string; dateOfBirth: string | null; school: string | null; caseNumber: string | null; caseworkerName: string | null }[];
   placements: { id: string; status: string; placementDate: string; endDate: string | null; child: { firstName: string; preferredName: string | null } }[];
   licensing: { id: string; name: string; status: string; dueDate: string | null }[];
-  visits: { id: string; visitDate: string; visitType: string | null; summary: string | null }[];
+  visits: { id: string; visitDate: string; visitType: string | null; summary: string | null; status: string }[];
+  goals: { id: string; title: string; description: string | null; status: string; targetDate: string | null }[];
+  trainingHours: { totalHours: number; count: number };
   upcomingAppointments: number;
 }
 
@@ -30,6 +40,7 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
   const [staff, setStaff] = useState<StaffRow[] | null>(null);
   const [incidents, setIncidents] = useState<IncidentRow[] | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementRow[] | null>(null);
+  const [report, setReport] = useState<ReportData | null>(null);
   const [detail, setDetail] = useState<HomeDetail | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -48,6 +59,9 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
   const loadAnnouncements = useCallback(async () => {
     const r = await fetch('/api/agency/announcements'); if (r.ok) setAnnouncements(await r.json());
   }, []);
+  const loadReport = useCallback(async () => {
+    const r = await fetch('/api/agency/report'); if (r.ok) setReport(await r.json());
+  }, []);
 
   useEffect(() => { void loadOverview(); }, [loadOverview]);
   useEffect(() => {
@@ -55,7 +69,8 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
     if (tab === 'staff' && !staff) void loadStaff();
     if (tab === 'incidents' && !incidents) void loadIncidents();
     if (tab === 'announcements' && !announcements) void loadAnnouncements();
-  }, [tab, homes, staff, incidents, announcements, loadHomes, loadStaff, loadIncidents, loadAnnouncements]);
+    if (tab === 'reports' && !report) void loadReport();
+  }, [tab, homes, staff, incidents, announcements, report, loadHomes, loadStaff, loadIncidents, loadAnnouncements, loadReport]);
 
   async function openHome(id: string) {
     setDetail(null);
@@ -141,6 +156,7 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
         {tabBtn('homes', 'Homes')}
         {canAssign && tabBtn('incidents', 'Incidents')}
         {tabBtn('announcements', 'Announcements')}
+        {tabBtn('reports', 'Reports')}
         {isAdmin && tabBtn('staff', 'Staff')}
       </div>
       {msg && <p className="mb-3 text-sm text-red-600">{msg}</p>}
@@ -311,6 +327,57 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
           ))}
         </div>
       )}
+
+      {tab === 'reports' && (
+        report === null ? <p className="text-sm text-slate-500">Loading…</p> : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Agency report</h2>
+              <a href="/api/agency/report?format=csv" className="btn-secondary text-sm">Download staff CSV</a>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Breakdown title="Placements by status" data={report.placementsByStatus} />
+              <Breakdown title="Incidents by status" data={report.incidentsByStatus} />
+              <Breakdown title="Goals by status" data={report.goalsByStatus} />
+              <Breakdown title="Visits" data={{ scheduled: report.visits.scheduled, completed: report.visits.completed, 'compliance alerts': report.complianceAlerts }} />
+            </div>
+            <div className="card overflow-x-auto p-0">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr><th className="px-4 py-3">Staff</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Placements</th><th className="px-4 py-3">Visits</th></tr>
+                </thead>
+                <tbody>
+                  {report.staffPerformance.map((s, i) => (
+                    <tr key={i} className="border-b border-slate-100 last:border-0">
+                      <td className="px-4 py-3 font-medium text-slate-800">{s.name}</td>
+                      <td className="px-4 py-3 text-slate-600">{ROLE_LABEL[s.role] ?? s.role}</td>
+                      <td className="px-4 py-3 text-slate-600">{s.placements}</td>
+                      <td className="px-4 py-3 text-slate-600">{s.visits}</td>
+                    </tr>
+                  ))}
+                  {report.staffPerformance.length === 0 && <tr><td colSpan={4} className="px-4 py-3 text-slate-400">No staff yet.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function Breakdown({ title, data }: { title: string; data: Record<string, number> }) {
+  const entries = Object.entries(data);
+  return (
+    <div className="card">
+      <p className="text-xs uppercase tracking-wide text-slate-500">{title}</p>
+      {entries.length === 0 ? <p className="mt-2 text-sm text-slate-400">None</p> : (
+        <ul className="mt-2 space-y-1 text-sm">
+          {entries.map(([k, v]) => (
+            <li key={k} className="flex justify-between"><span className="text-slate-600">{k.replaceAll('_', ' ').toLowerCase()}</span><span className="font-semibold text-slate-800">{v}</span></li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -339,8 +406,16 @@ function HomeDetailPanel({ detail, canAssign, isAdmin, homes, onClose, onAssigne
   const [assigning, setAssigning] = useState(false);
   const [licensingOpen, setLicensingOpen] = useState(false);
   const [visitOpen, setVisitOpen] = useState(false);
+  const [goalOpen, setGoalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [thread, setThread] = useState<{ id: string; body: string; fromAgency: boolean; createdAt: string }[] | null>(null);
+
+  const loadThread = useCallback(async () => {
+    const r = await fetch(`/api/agency/homes/${detail.home.id}/messages`);
+    if (r.ok) setThread(await r.json());
+  }, [detail.home.id]);
+  useEffect(() => { void loadThread(); }, [loadThread]);
 
   async function assign(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -365,6 +440,54 @@ function HomeDetailPanel({ detail, canAssign, isAdmin, homes, onClose, onAssigne
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'REUNIFIED' }),
     });
     onAssigned();
+  }
+
+  async function override(placementId: string) {
+    if (!confirm('Override: force this placement to ACTIVE, bypassing the foster parent’s accept/deny?')) return;
+    await fetch(`/api/agency/placements/${placementId}/override`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'ACTIVE' }),
+    });
+    onAssigned();
+  }
+
+  async function completeVisit(visitId: string) {
+    await fetch(`/api/agency/visits/${visitId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'COMPLETED' }),
+    });
+    onAssigned();
+  }
+
+  async function addGoal(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    const fd = new FormData(e.currentTarget);
+    const body: Record<string, unknown> = { title: String(fd.get('title')) };
+    for (const k of ['description', 'targetDate']) { const v = String(fd.get(k) || '').trim(); if (v) body[k] = v; }
+    const res = await fetch(`/api/agency/homes/${detail.home.id}/goals`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    setBusy(false);
+    if (!res.ok) { const x = await res.json().catch(() => ({})); setErr(x?.error || 'Could not add the goal.'); return; }
+    setGoalOpen(false);
+    onAssigned();
+  }
+
+  async function setGoalStatus(goalId: string, status: string) {
+    await fetch(`/api/agency/goals/${goalId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
+    });
+    onAssigned();
+  }
+
+  async function sendMessage(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const body = String(fd.get('body') || '').trim();
+    if (!body) return;
+    const res = await fetch(`/api/agency/homes/${detail.home.id}/messages`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }),
+    });
+    if (res.ok) { (e.target as HTMLFormElement).reset(); await loadThread(); }
   }
 
   async function submitLicensing(e: React.FormEvent<HTMLFormElement>) {
@@ -517,6 +640,9 @@ function HomeDetailPanel({ detail, canAssign, isAdmin, homes, onClose, onAssigne
               {canAssign && !['REUNIFIED', 'ENDED', 'PENDING'].includes(p.status) && (
                 <button onClick={() => reunify(p.id)} className="text-xs text-brand-700 hover:underline">Mark reunified</button>
               )}
+              {isAdmin && p.status === 'PENDING' && (
+                <button onClick={() => override(p.id)} className="text-xs text-amber-700 hover:underline">Override → active</button>
+              )}
             </span>
           </li>
         ))}
@@ -546,12 +672,67 @@ function HomeDetailPanel({ detail, canAssign, isAdmin, homes, onClose, onAssigne
       <ul className="mt-1 space-y-1 text-sm">
         {detail.visits.map((v) => (
           <li key={v.id} className="flex justify-between gap-3">
-            <span className="text-slate-700">{v.visitType || 'Visit'}{v.summary ? <span className="text-slate-500"> — {v.summary}</span> : null}</span>
-            <span className="shrink-0 text-slate-500">{d(v.visitDate)}</span>
+            <span className="text-slate-700">
+              {v.status === 'SCHEDULED' && <span className="mr-1 badge bg-amber-100 text-amber-800">scheduled</span>}
+              {v.visitType || 'Visit'}{v.summary ? <span className="text-slate-500"> — {v.summary}</span> : null}
+            </span>
+            <span className="flex shrink-0 items-center gap-2 text-slate-500">
+              {d(v.visitDate)}
+              {canAssign && v.status === 'SCHEDULED' && <button onClick={() => completeVisit(v.id)} className="text-xs text-brand-700 hover:underline">Complete</button>}
+            </span>
           </li>
         ))}
         {detail.visits.length === 0 && <li className="text-slate-400">No visits recorded.</li>}
       </ul>
+
+      <div className="mt-4 flex items-center justify-between">
+        <h4 className="text-sm font-semibold text-slate-700">Case goals ({detail.goals.length})</h4>
+        {canAssign && !goalOpen && (
+          <button onClick={() => setGoalOpen(true)} className="text-xs font-medium text-brand-700 hover:underline">+ Add goal</button>
+        )}
+      </div>
+      {goalOpen && (
+        <form onSubmit={addGoal} className="mt-2 grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-3">
+          <input name="title" required placeholder="Goal (e.g. Reunification) *" className="input sm:col-span-2" />
+          <div><label className="text-xs text-slate-500">Target date</label><input name="targetDate" type="date" className="input" /></div>
+          <textarea name="description" placeholder="Details (optional)" rows={2} className="input sm:col-span-3" />
+          <div className="flex items-end gap-2 sm:col-span-3">
+            <button type="submit" disabled={busy} className="btn-primary">{busy ? 'Saving…' : 'Add goal'}</button>
+            <button type="button" onClick={() => setGoalOpen(false)} className="btn-secondary">Cancel</button>
+          </div>
+        </form>
+      )}
+      <ul className="mt-1 space-y-1 text-sm">
+        {detail.goals.map((g) => (
+          <li key={g.id} className="flex items-center justify-between gap-3">
+            <span className="text-slate-700">{g.title}{g.targetDate ? <span className="text-slate-400"> · by {d(g.targetDate)}</span> : null}</span>
+            <span className="flex shrink-0 items-center gap-2">
+              <span className="badge bg-slate-100 text-slate-600">{g.status.replaceAll('_', ' ').toLowerCase()}</span>
+              {canAssign && g.status !== 'MET' && <button onClick={() => setGoalStatus(g.id, 'MET')} className="text-xs text-green-700 hover:underline">Met</button>}
+              {canAssign && !['IN_PROGRESS', 'MET'].includes(g.status) && <button onClick={() => setGoalStatus(g.id, 'IN_PROGRESS')} className="text-xs text-brand-700 hover:underline">Start</button>}
+            </span>
+          </li>
+        ))}
+        {detail.goals.length === 0 && <li className="text-slate-400">No goals set.</li>}
+      </ul>
+
+      <p className="mt-4 text-sm text-slate-600"><span className="font-semibold text-slate-700">Training hours:</span> {detail.trainingHours.totalHours} ({detail.trainingHours.count} {detail.trainingHours.count === 1 ? 'entry' : 'entries'})</p>
+
+      <h4 className="mt-4 text-sm font-semibold text-slate-700">Messages</h4>
+      <div className="mt-1 max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
+        {thread === null ? <p className="text-sm text-slate-400">Loading…</p> : thread.length === 0 ? (
+          <p className="text-sm text-slate-400">No messages yet.</p>
+        ) : thread.map((m) => (
+          <div key={m.id} className={`max-w-[85%] rounded-lg px-3 py-1.5 text-sm ${m.fromAgency ? 'ml-auto bg-brand-100 text-brand-900' : 'bg-slate-100 text-slate-800'}`}>
+            <p>{m.body}</p>
+            <p className="text-[10px] text-slate-500">{m.fromAgency ? 'Agency' : 'Foster parent'} · {new Date(m.createdAt).toLocaleDateString()}</p>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={sendMessage} className="mt-2 flex gap-2">
+        <input name="body" placeholder="Message the foster parent…" className="input flex-1" />
+        <button className="btn-secondary">Send</button>
+      </form>
     </div>
   );
 }

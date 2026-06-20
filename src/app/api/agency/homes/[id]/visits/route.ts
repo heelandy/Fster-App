@@ -21,11 +21,14 @@ export function POST(req: Request, { params }: Params) {
     const home = await requireAgencyHome(ctx, params.id);
     const { visitDate, visitType, summary } = await readJson(req, agencyVisitSchema);
 
+    // A future-dated visit is SCHEDULED; today or earlier is logged as COMPLETED.
+    const status = visitDate.getTime() > Date.now() ? 'SCHEDULED' : 'COMPLETED';
     const visit = await prisma.visit.create({
       data: {
         householdId: home.id,
         agencyId: ctx.agencyId,
         visitDate,
+        status,
         visitType: visitType ?? null,
         summary: summary ?? null,
         createdById: ctx.userId,

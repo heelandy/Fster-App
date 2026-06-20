@@ -7,6 +7,10 @@ import {
   expenseSchema,
   contactSchema,
   licensingSchema,
+  behaviorLogSchema,
+  inventorySchema,
+  communicationLogSchema,
+  journalSchema,
 } from './validation';
 
 // Cast each Prisma delegate to the loose factory shape (signatures are compatible at runtime).
@@ -93,4 +97,51 @@ export const licensingResource: ResourceConfig<Record<string, unknown>> = {
   feature: 'licensingTracker',
   schema: licensingSchema,
   orderBy: { dueDate: 'asc' },
+};
+
+export const behaviorLogResource: ResourceConfig<Record<string, unknown>> = {
+  delegate: asDelegate(prisma.behaviorLog),
+  scope: 'behavior-logs',
+  readCap: 'behaviorLogs:read',
+  writeCap: 'behaviorLogs:write',
+  schema: behaviorLogSchema,
+  childField: 'required',
+  include: childInclude,
+  orderBy: { logDate: 'desc' },
+  stamp: (ctx) => ({ authorId: ctx.userId }),
+};
+
+export const inventoryResource: ResourceConfig<Record<string, unknown>> = {
+  delegate: asDelegate(prisma.inventoryItem),
+  scope: 'inventory',
+  readCap: 'inventory:read',
+  writeCap: 'inventory:write',
+  schema: inventorySchema,
+  childField: 'optional',
+  include: childInclude,
+  orderBy: { createdAt: 'desc' },
+};
+
+export const communicationResource: ResourceConfig<Record<string, unknown>> = {
+  delegate: asDelegate(prisma.communicationLog),
+  scope: 'communications',
+  readCap: 'communications:read',
+  writeCap: 'communications:write',
+  schema: communicationLogSchema,
+  childField: 'optional',
+  include: childInclude,
+  orderBy: { logDate: 'desc' },
+  stamp: (ctx) => ({ authorId: ctx.userId }),
+};
+
+export const journalResource: ResourceConfig<Record<string, unknown>> = {
+  delegate: asDelegate(prisma.journalEntry),
+  scope: 'journal',
+  readCap: 'journal:read',
+  writeCap: 'journal:write',
+  schema: journalSchema,
+  childField: 'required',
+  include: childInclude,
+  orderBy: { entryDate: 'desc' },
+  stamp: (ctx) => ({ authorId: ctx.userId }),
 };

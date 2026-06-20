@@ -38,8 +38,28 @@ function sanitize(s: string): string {
 
 interface Placed { x: number; y: number; size: number; bold: boolean; text: string }
 
+const TEXT_WIDTH = PAGE_W - 2 * MARGIN_X;
+
+// Greedy word-wrap to the page width (Helvetica avg char width ≈ 0.5em).
+function wrapLine(ln: PdfLine): PdfLine[] {
+  const size = ln.size ?? 11;
+  const maxChars = Math.max(8, Math.floor(TEXT_WIDTH / (size * 0.5)));
+  const words = ln.text.split(/\s+/);
+  const out: string[] = [];
+  let line = '';
+  for (const w of words) {
+    if (line && (line.length + 1 + w.length) > maxChars) { out.push(line); line = w; }
+    else line = line ? `${line} ${w}` : w;
+  }
+  if (line) out.push(line);
+  if (out.length <= 1) return [ln];
+  // First wrapped row keeps the gap; continuation rows hug the line above.
+  return out.map((t, i) => ({ text: t, size, bold: ln.bold, gap: i === 0 ? ln.gap : 0 }));
+}
+
 /** Lay lines out into pages, returning each page's positioned text runs. */
-function paginate(lines: PdfLine[]): Placed[][] {
+function paginate(rawLines: PdfLine[]): Placed[][] {
+  const lines = rawLines.flatMap(wrapLine);
   const pages: Placed[][] = [];
   let cur: Placed[] = [];
   let y = TOP;
@@ -183,6 +203,79 @@ export function buildChildReportPdf(data: ChildReportData): Buffer {
     lines.push({ text: `${fmtDate(c.logDate)}   ${notes || '—'}`, size: 10, gap: 6 });
   }
 
+  return buildTextPdf(lines);
+}
+
+export interface TransitionData {
+  childName: string;
+  dateOfBirth: Date | null;
+  school: string | null;
+  doctorName: string | null;
+  allergies: string | null;
+  importantNotes: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  medications: { name: string; dosage: string | null; schedule: string | null }[];
+  routines: { name: string }[];
+}
+
+/**
+ * Placement-transition packet — the essentials that travel with a child when
+ * they move homes: summary, medical, medications, routines and comfort notes.
+ */
+export function buildTransitionPacketPdf(d: TransitionData): Buffer {
+  const lines: PdfLine[] = [
+    { text: 'Placement Transition Packet', size: 20, bold: true },
+    { text: d.childName, size: 13, gap: 4 },
+    { text: `Generated ${new Date().toISOString().slice(0, 10)}`, size: 9, gap: 2 },
+
+    { text: 'Summary', size: 13, bold: true, gap: 16 },
+    { text: `Date of birth: ${fmtDate(d.dateOfBirth)}`, size: 10, gap: 6 },
+    { text: `School: ${d.school || '—'}`, size: 10, gap: 2 },
+    { text: `Doctor: ${d.doctorName || '—'}`, size: 10, gap: 2 },
+    { text: `Emergency contact: ${d.emergencyContactName || '—'}${d.emergencyContactPhone ? ` (${d.emergencyContactPhone})` : ''}`, size: 10, gap: 2 },
+
+    { text: 'Allergies & medical', size: 13, bold: true, gap: 16 },
+    { text: d.allergies || 'None recorded', size: 10, gap: 6 },
+
+    { text: `Medications (${d.medications.length})`, size: 13, bold: true, gap: 16 },
+  ];
+  if (d.medications.length === 0) lines.push({ text: 'None recorded.', size: 10, gap: 6 });
+  for (const m of d.medications) lines.push({ text: `${m.name}${m.dosage ? ` — ${m.dosage}` : ''}${m.schedule ? ` (${m.schedule})` : ''}`, size: 10, gap: 6 });
+
+  lines.push({ text: `Routines (${d.routines.length})`, size: 13, bold: true, gap: 16 });
+  if (d.routines.length === 0) lines.push({ text: 'None recorded.', size: 10, gap: 6 });
+  for (const r of d.routines) lines.push({ text: r.name, size: 10, gap: 6 });
+
+  lines.push({ text: 'Comfort items & notes', size: 13, bold: true, gap: 16 });
+  lines.push({ text: d.importantNotes || '—', size: 10, gap: 6 });
+
+  return buildTextPdf(lines);
+}
+
+export interface JournalGroup {
+  childName: string;
+  entries: { entryDate: Date; title: string | null; body: string }[];
+}
+
+/** Child story & success journal as a keepsake memory book. */
+export function buildJournalPdf(groups: JournalGroup[]): Buffer {
+  const lines: PdfLine[] = [
+    { text: 'A Story Worth Telling', size: 20, bold: true },
+    { text: 'Child Story & Success Journal', size: 12, gap: 4 },
+    { text: `Generated ${new Date().toISOString().slice(0, 10)}`, size: 9, gap: 2 },
+  ];
+  if (groups.every((g) => g.entries.length === 0)) {
+    lines.push({ text: 'No journal entries yet.', size: 11, gap: 16 });
+  }
+  for (const g of groups) {
+    if (g.entries.length === 0) continue;
+    lines.push({ text: g.childName, size: 15, bold: true, gap: 20 });
+    for (const e of g.entries) {
+      lines.push({ text: `${fmtDate(e.entryDate)}${e.title ? ` — ${e.title}` : ''}`, size: 12, bold: true, gap: 12 });
+      lines.push({ text: e.body, size: 10, gap: 2 });
+    }
+  }
   return buildTextPdf(lines);
 }
 

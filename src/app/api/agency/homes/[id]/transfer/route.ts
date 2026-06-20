@@ -39,7 +39,7 @@ export function POST(req: Request, { params }: Params) {
       }),
       prisma.childProfile.update({ where: { id: child.id }, data: { householdId: toHome.id, placementStatus: 'PENDING' } }),
       prisma.placement.create({
-        data: { childId: child.id, status: 'PENDING', placementDate: now, endDate: trialEnd, agency: ctx.agencyName, parentResponse: 'PENDING' },
+        data: { childId: child.id, status: 'PENDING', placementDate: now, endDate: trialEnd, agency: ctx.agencyName, parentResponse: 'PENDING', createdById: ctx.userId },
       }),
     ]);
 

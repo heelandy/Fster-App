@@ -97,6 +97,20 @@ enum IncidentStatus {
   CLOSED
 }
 
+// A case-worker visit can be scheduled ahead of time, then marked completed.
+enum VisitStatus {
+  SCHEDULED
+  COMPLETED
+}
+
+// Case goal lifecycle (agency sets goals for a placement; foster parent follows).
+enum GoalStatus {
+  OPEN
+  IN_PROGRESS
+  MET
+  CANCELLED
+}
+
 enum AppointmentType {
   DOCTOR
   THERAPY
@@ -269,6 +283,12 @@ model Household {
   trainingHours TrainingHour[]
   visits       Visit[]
   incidents    Incident[]
+  goals        Goal[]
+  messages     Message[]
+  behaviorLogs BehaviorLog[]
+  inventory    InventoryItem[]
+  communications CommunicationLog[]
+  journalEntries JournalEntry[]
   subscription Subscription?
 
   @@index([ownerId])
@@ -357,6 +377,10 @@ model ChildProfile {
   routines     Routine[]
   checklists   Checklist[]
   visits       Visit[]
+  behaviorLogs BehaviorLog[]
+  inventory    InventoryItem[]
+  communications CommunicationLog[]
+  journalEntries JournalEntry[]
 
   @@index([householdId])
 }
@@ -374,6 +398,7 @@ model Placement {
   // they accept (→ TRIAL_HOME_VISIT) or decline (→ ENDED). The Y/N is recorded here.
   parentResponse PlacementResponse @default(PENDING)
   respondedAt    DateTime?
+  createdById   String? // agency staff who created the placement (staff metrics)
   createdAt     DateTime        @default(now())
 
   @@index([childId])
@@ -390,6 +415,7 @@ model Visit {
   agencyId    String?
   visitType   String? // Home visit, Court, School, Medical, Other
   visitDate   DateTime
+  status      VisitStatus @default(COMPLETED) // future-dated visits are SCHEDULED
   summary     String?
   createdById String?
   createdAt   DateTime      @default(now())
@@ -430,6 +456,114 @@ model Announcement {
   createdAt   DateTime @default(now())
 
   @@index([agencyId, createdAt])
+}
+
+/// A case goal the agency sets for a placement (e.g. "reunification", "attend
+/// therapy weekly"). Foster parent can view; case worker manages.
+model Goal {
+  id          String     @id @default(cuid())
+  householdId String
+  household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  agencyId    String?
+  title       String
+  description String?
+  status      GoalStatus @default(OPEN)
+  targetDate  DateTime?
+  createdById String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([householdId, status])
+}
+
+/// A secure message between an agency and one of its foster homes. `fromAgency`
+/// marks the direction; both sides read the same household-scoped thread.
+model Message {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  agencyId    String?
+  senderId    String?
+  fromAgency  Boolean   @default(false)
+  body        String
+  createdAt   DateTime  @default(now())
+
+  @@index([householdId, createdAt])
+}
+
+/// Trauma-informed behaviour entry (TBRI-style) — richer than a daily care log.
+model BehaviorLog {
+  id           String       @id @default(cuid())
+  householdId  String
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId      String
+  child        ChildProfile  @relation(fields: [childId], references: [id], onDelete: Cascade)
+  logDate      DateTime
+  trigger      String?
+  emotion      String?
+  coping       String?
+  intervention String?
+  strength     String?
+  notes        String?
+  authorId     String?
+  createdAt    DateTime      @default(now())
+
+  @@index([householdId, logDate])
+  @@index([childId, logDate])
+}
+
+/// Foster-closet / inventory item (clothing & supplies) with restock flag.
+model InventoryItem {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  child       ChildProfile?  @relation(fields: [childId], references: [id], onDelete: SetNull)
+  name        String
+  category    String?
+  size        String?
+  quantity    Int?
+  needed      Boolean       @default(false) // flagged as needing restock
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([householdId])
+}
+
+/// Communication-hub log entry — a call / email / meeting with a contact.
+model CommunicationLog {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String?
+  child       ChildProfile?  @relation(fields: [childId], references: [id], onDelete: SetNull)
+  contactId   String? // optional reference to a Contact (no FK; contacts may change)
+  logDate     DateTime
+  method      String? // Call, Email, Meeting, Text, Other
+  summary     String
+  authorId    String?
+  createdAt   DateTime      @default(now())
+
+  @@index([householdId, logDate])
+}
+
+/// Child story & success journal entry → keepsake memory book at adoption.
+model JournalEntry {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String
+  child       ChildProfile   @relation(fields: [childId], references: [id], onDelete: Cascade)
+  entryDate   DateTime
+  title       String?
+  body        String
+  authorId    String?
+  createdAt   DateTime      @default(now())
+
+  @@index([householdId, entryDate])
+  @@index([childId, entryDate])
 }
 
 // ───────────────────────────── Appointments ─────────────────────────────

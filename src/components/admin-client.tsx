@@ -6,6 +6,7 @@ import { AdminAnalytics } from './admin-analytics';
 import { AdminSystem } from './admin-system';
 import { AdminIntegrations } from './admin-integrations';
 import { AdminFinance } from './admin-finance';
+import { AdminPlans } from './admin-plans';
 
 interface AdminUser {
   id: string;
@@ -58,7 +59,7 @@ interface Stats {
 
 const ADMIN_ROLES = ['', 'READ_ONLY', 'SUPPORT', 'MODERATOR', 'MANAGER', 'FINANCE_ADMIN', 'ADMIN', 'SUPER_ADMIN'];
 
-type Tab = 'overview' | 'users' | 'tickets' | 'analytics' | 'finance' | 'notifications' | 'settings' | 'integrations' | 'system' | 'security' | 'admin';
+type Tab = 'overview' | 'users' | 'tickets' | 'analytics' | 'finance' | 'plans' | 'notifications' | 'settings' | 'integrations' | 'system' | 'security' | 'admin';
 
 export function AdminClient() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -188,6 +189,7 @@ export function AdminClient() {
         {tabBtn('tickets', 'Tickets')}
         {tabBtn('analytics', 'Analytics')}
         {tabBtn('finance', 'Finance')}
+        {tabBtn('plans', 'Plans')}
         {tabBtn('notifications', `Notifications${unread ? ` (${unread})` : ''}`)}
         {tabBtn('settings', 'Settings')}
         {tabBtn('integrations', 'Integrations')}
@@ -199,6 +201,7 @@ export function AdminClient() {
       {tab === 'tickets' && <AdminTickets />}
       {tab === 'analytics' && <AdminAnalytics />}
       {tab === 'finance' && <AdminFinance />}
+      {tab === 'plans' && <AdminPlans />}
       {tab === 'integrations' && <AdminIntegrations />}
       {tab === 'system' && <AdminSystem />}
 

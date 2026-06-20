@@ -13,6 +13,8 @@ Milestones:  Core app .......... 2026-06-15
              Admin platform .... 2026-06-16
              Finance + admin user-management batch .... 2026-06-17
              Agency portal + case-worker roles .... 2026-06-19
+             Caregiver suite + agency workflow (goals, scheduled visits,
+               messaging, reports, behaviour/closet/journal/timeline, PDFs) .... 2026-06-20
 
 LEGEND:  ✅ done   🟡 partial   ➖ not applicable to this product
          ⬜ not built (future / larger-scope vision)
@@ -805,8 +807,10 @@ AGENCY ADMIN  (agency director / owner of the tenant)
   ✅ Assign children, manage placement status, submit licensing
   ✅ Approve / suspend a foster home (status: pending / approved / suspended)
   ✅ Broadcast announcements to the agency's homes
-  ⬜ Override placement decisions; process reimbursements / stipends
-  ⬜ Generate state / federal / outcome reports
+  ✅ Override a placement decision (force ACTIVE, bypassing the parent's accept/deny)
+  ✅ Agency report + analytics (Reports tab: placement/incident/goal breakdowns,
+       visits, compliance, per-staff performance; staff CSV export)
+  ⬜ Process reimbursements / stipends; generate state / federal / outcome reports
 
 CASE WORKER
   ✅ Create a new foster home (a foster parent is REQUIRED — never blank)
@@ -819,12 +823,15 @@ CASE WORKER
   ✅ Mark a placement REUNIFIED / ENDED
   ✅ Move a child between the agency's homes (transfer → new PENDING placement,
        old placement ended; the child's placements form a transfer history)
-  ✅ Record case-worker visits to a home (date, type, summary)
+  ✅ Record case-worker visits to a home, OR schedule a future-dated visit
+       (SCHEDULED → mark COMPLETED) — date, type, summary
+  ✅ Set & track case goals for a placement (OPEN / IN_PROGRESS / MET); the foster
+       parent sees them on their dashboard
+  ✅ Secure two-way messaging with the foster parent
   ✅ Submit a licensing / compliance item for the foster parent to complete
   ✅ Review / escalate / resolve / close incidents foster parents report
   ✅ View assigned homes & children (case fields only — no medical/private notes)
   ✅ No "Back to app" link (a case worker has no household of their own)
-  ⬜ Schedule (calendar) visits in advance and track case goals as a formal workflow
 
 AGENCY VIEWER
   ✅ Read-only oversight: view homes and children
@@ -847,7 +854,7 @@ AGENCY DASHBOARD (Overview tab)
 ------------------------------------------------------------------
   ✅ Foster homes · children · active placements · staff · compliance alerts
   ✅ Available homes · placement-request (pending accept/deny) queue · open incidents
-  ⬜ Staff-performance metrics (per-worker caseload / placement throughput)
+  ✅ Staff-performance metrics (per-worker placements & visits — Reports tab + CSV)
 
 ------------------------------------------------------------------
 AGENCY FEATURE CHECKLIST (deduplicated — each item appears once)
@@ -865,18 +872,20 @@ Built ✅
   ✅ Incident reporting & escalation workflow (foster parent → case worker)
   ✅ Announcements (agency → its homes, shown on the foster-parent dashboard)
   ✅ Court-report PDF generator (per child, from logged data)
+  ✅ Case goals (set/track per placement) + secure agency↔foster-parent messaging
+  ✅ Scheduled visits (book ahead → mark complete) + training-hours surfaced to agency
+  ✅ Placement override + Reports/analytics tab (breakdowns + per-staff CSV)
   ✅ Billing management (Stripe plans; admin Finance / Plans tabs — PART 6)
   ✅ Audit logs (immutable security event on every agency mutation)
 
 Future ⬜ (larger-scope vision — also tracked in PART 4)
-  🟡 Agency reporting & analytics — overview metrics + PDF exports ship; full
-       placement / compliance / outcome / performance analytics still to come
-  ⬜ Foster-parent training-hour tracking surfaced to the agency
-  ⬜ Secure messaging between agency, staff and foster parents
+  ⬜ Deeper outcome/compliance analytics (trends over time, cohort reporting)
   ⬜ State-reimbursement / payroll / grant tracking
   ⬜ State-compliance reporting · document sharing
-  ⬜ Override placement decisions; state / federal / outcome reports
+  ⬜ Process reimbursements / stipends; state / federal / outcome reports
   ⬜ AI assistant (placement matching, summaries, court reports, risk scoring)
+  ⬜ Distinct staff sub-roles (Social Worker / Licensing Specialist / Intake /
+       Supervisor / Admin Assistant) — today: Admin / Case Worker / Viewer
 
 ------------------------------------------------------------------
 FOSTER-PARENT PRODUCT IDEAS (caregiver-facing wishlist — future ⬜)
@@ -884,17 +893,18 @@ FOSTER-PARENT PRODUCT IDEAS (caregiver-facing wishlist — future ⬜)
 Kept once, deduped against PART 1 (already built) and the agency list above:
   ✅ Court-report generator (per-child PDF from placements, appointments, active
        meds & recent care-log notes — on the child page)
-  🟡 Placement timeline / child journey — placements form a transfer history; a
-       full visual one-click case/court timeline is still to come
-  ⬜ "Today" command center (appointments, meds, visits, licensing due, court)
-  ⬜ Placement-transition packet (child summary, meds, school, comfort items)
-  ⬜ Behavior & trauma tracking (triggers, coping, interventions — TBRI)
-  ⬜ Foster closet / inventory (sizes, supplies, restock alerts)
-  ⬜ Family communication hub (approved contacts, visit logs)
-  ⬜ Resource library (TBRI, trauma-informed parenting, IEP / school advocacy)
-  ⬜ Emergency info mode (one-tap allergies, meds, contacts)
-  ⬜ Shared team portal (caseworker, therapist, GAL, teacher — scoped access)
-  ⬜ Child story & success journal → keepsake memory book at adoption
+  ✅ Placement timeline / child journey — merged chronological view per child
+       (/dashboard/timeline) from placements, appointments, journal & behaviour
+  ✅ "Today" command center (/dashboard/today — appointments, meds, visits,
+       court dates, licensing due)
+  ✅ Placement-transition packet (per-child PDF: summary, meds, routines, comfort notes)
+  ✅ Behavior & trauma tracking (TBRI: triggers, coping, interventions, strengths)
+  ✅ Foster closet / inventory (sizes, supplies, restock flag)
+  ✅ Family communication hub (/dashboard/communication — call/email/meeting log)
+  ✅ Resource library (curated TBRI / IEP / training links)
+  ✅ Emergency info mode (/dashboard/emergency — one-tap allergies, meds, contacts)
+  ✅ Child story & success journal + keepsake PDF at adoption
+  ⬜ Shared team portal (external caseworker/therapist/GAL/teacher scoped access)
   ⬜ Native mobile app (responsive web today; native is the next milestone)
 Already shipped in PART 1 (NOT future): appointments, medications, documents,
 care logs, contacts, routines, and licensing-compliance reminders. Foster parents

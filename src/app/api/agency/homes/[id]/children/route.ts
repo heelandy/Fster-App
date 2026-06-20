@@ -30,7 +30,7 @@ export function POST(req: Request, { params }: Params) {
     const child = await prisma.childProfile.create({ data: { householdId: home.id, ...childData, placementStatus: 'PENDING' } });
     const trialEnd = trialEndDate ?? new Date(Date.now() + 30 * 86_400_000); // default 30-day trial
     await prisma.placement.create({
-      data: { childId: child.id, status: 'PENDING', placementDate: new Date(), endDate: trialEnd, agency: ctx.agencyName, parentResponse: 'PENDING' },
+      data: { childId: child.id, status: 'PENDING', placementDate: new Date(), endDate: trialEnd, agency: ctx.agencyName, parentResponse: 'PENDING', createdById: ctx.userId },
     });
 
     await logSecurity({

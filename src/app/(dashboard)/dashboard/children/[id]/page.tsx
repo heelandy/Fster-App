@@ -74,7 +74,10 @@ export default async function ChildDetailPage({ params }: { params: { id: string
             </span>
           </div>
           {ctx.role !== 'BABYSITTER' && (
-            <a href={`/api/children/${child.id}/report/pdf`} className="btn-secondary shrink-0 text-sm">Court report (PDF)</a>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <a href={`/api/children/${child.id}/report/pdf`} className="btn-secondary text-sm">Court report (PDF)</a>
+              <a href={`/api/children/${child.id}/transition/pdf`} className="btn-secondary text-sm">Transition packet (PDF)</a>
+            </div>
           )}
         </div>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

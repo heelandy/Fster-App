@@ -72,7 +72,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   const items: NavItem[] = [{ href: '/dashboard', label: 'Overview', icon: '📊' }];
+  items.push({ href: '/dashboard/today', label: 'Today', icon: '☀️' });
   if (can(ctx, 'children:read')) items.push({ href: '/dashboard/children', label: 'Children', icon: '🧒' });
+  if (can(ctx, 'children:read')) items.push({ href: '/dashboard/emergency', label: 'Emergency', icon: '🚨' });
   if (can(ctx, 'appointments:read')) items.push({ href: '/dashboard/appointments', label: 'Appointments', icon: '📅' });
   if (can(ctx, 'documents:read') && planHasFeature(ctx.tier, 'documents'))
     items.push({ href: '/dashboard/documents', label: 'Documents', icon: '📄' });
@@ -87,6 +89,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (can(ctx, 'routines:read')) items.push({ href: '/dashboard/checklists', label: 'Checklists', icon: '✅' });
   if (can(ctx, 'licensing:read') && planHasFeature(ctx.tier, 'licensingTracker'))
     items.push({ href: '/dashboard/licensing', label: 'Licensing', icon: '🛡️' });
+  if (can(ctx, 'behaviorLogs:read')) items.push({ href: '/dashboard/behavior', label: 'Behavior', icon: '💛' });
+  if (can(ctx, 'communications:read')) items.push({ href: '/dashboard/communication', label: 'Communication', icon: '☎️' });
+  if (can(ctx, 'inventory:read')) items.push({ href: '/dashboard/closet', label: 'Foster Closet', icon: '👕' });
+  if (can(ctx, 'journal:read')) items.push({ href: '/dashboard/journal', label: 'Journal', icon: '📖' });
+  if (can(ctx, 'children:read')) items.push({ href: '/dashboard/timeline', label: 'Timeline', icon: '🗓️' });
+  items.push({ href: '/dashboard/resources', label: 'Resources', icon: '📚' });
   if (can(ctx, 'household:manage') && planHasFeature(ctx.tier, 'agencyDashboard'))
     items.push({ href: '/dashboard/agency', label: 'Agency', icon: '🏢' });
   if (can(ctx, 'members:manage')) items.push({ href: '/dashboard/household', label: 'Household', icon: '🏠' });

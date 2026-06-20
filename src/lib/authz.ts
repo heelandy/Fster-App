@@ -40,7 +40,18 @@ export type Capability =
   | 'licensing:read'
   | 'licensing:write'
   | 'incidents:read'
-  | 'incidents:write';
+  | 'incidents:write'
+  | 'behaviorLogs:read'
+  | 'behaviorLogs:write'
+  | 'inventory:read'
+  | 'inventory:write'
+  | 'communications:read'
+  | 'communications:write'
+  | 'journal:read'
+  | 'journal:write'
+  | 'goals:read'
+  | 'messages:read'
+  | 'messages:write';
 
 const FOSTER_PARENT_CAPS: Capability[] = [
   'household:manage',
@@ -67,6 +78,17 @@ const FOSTER_PARENT_CAPS: Capability[] = [
   'licensing:write',
   'incidents:read',
   'incidents:write',
+  'behaviorLogs:read',
+  'behaviorLogs:write',
+  'inventory:read',
+  'inventory:write',
+  'communications:read',
+  'communications:write',
+  'journal:read',
+  'journal:write',
+  'goals:read',
+  'messages:read',
+  'messages:write',
 ];
 
 const CO_PARENT_CAPS: Capability[] = [
@@ -91,6 +113,17 @@ const CO_PARENT_CAPS: Capability[] = [
   'licensing:write',
   'incidents:read',
   'incidents:write',
+  'behaviorLogs:read',
+  'behaviorLogs:write',
+  'inventory:read',
+  'inventory:write',
+  'communications:read',
+  'communications:write',
+  'journal:read',
+  'journal:write',
+  'goals:read',
+  'messages:read',
+  'messages:write',
 ];
 
 // Babysitter / respite: limited care instructions only. No documents, no legal,

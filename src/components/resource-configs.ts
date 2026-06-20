@@ -99,3 +99,70 @@ export const contactColumns: ColumnDef[] = [
   { key: 'email', label: 'Email' },
   { key: 'agency', label: 'Agency' },
 ];
+
+// Behaviour & trauma tracking (TBRI-style).
+export const behaviorFields: FieldDef[] = [
+  { name: 'childId', label: 'Child', type: 'childSelect', required: true },
+  { name: 'logDate', label: 'Date', type: 'date', required: true },
+  { name: 'trigger', label: 'Trigger', type: 'textarea', placeholder: 'What set it off?' },
+  { name: 'emotion', label: 'Emotion / pattern', type: 'text' },
+  { name: 'coping', label: 'Coping strategy', type: 'textarea' },
+  { name: 'intervention', label: 'What helped (intervention)', type: 'textarea' },
+  { name: 'strength', label: 'Strength shown', type: 'text' },
+  { name: 'notes', label: 'Notes', type: 'textarea' },
+];
+export const behaviorColumns: ColumnDef[] = [
+  { key: 'logDate', label: 'Date', kind: 'date' },
+  { key: 'child', label: 'Child', kind: 'childName' },
+  { key: 'trigger', label: 'Trigger' },
+  { key: 'intervention', label: 'What helped' },
+  { key: 'strength', label: 'Strength' },
+];
+
+// Foster closet / inventory.
+export const inventoryFields: FieldDef[] = [
+  { name: 'name', label: 'Item', type: 'text', required: true, placeholder: 'e.g. Winter coat' },
+  { name: 'category', label: 'Category', type: 'text', placeholder: 'Clothing, Shoes, Supplies…' },
+  { name: 'size', label: 'Size', type: 'text' },
+  { name: 'quantity', label: 'Quantity', type: 'number' },
+  { name: 'needed', label: 'Restock needed?', type: 'select', options: [{ value: 'false', label: 'No' }, { value: 'true', label: 'Yes — needs restock' }] },
+  { name: 'childId', label: 'Child (optional)', type: 'childSelect' },
+  { name: 'notes', label: 'Notes', type: 'textarea' },
+];
+export const inventoryColumns: ColumnDef[] = [
+  { key: 'name', label: 'Item' },
+  { key: 'category', label: 'Category' },
+  { key: 'size', label: 'Size' },
+  { key: 'quantity', label: 'Qty' },
+  { key: 'needed', label: 'Restock', kind: 'enum' },
+  { key: 'child', label: 'Child', kind: 'childName' },
+];
+
+// Family communication hub (call / email / meeting log).
+export const communicationFields: FieldDef[] = [
+  { name: 'logDate', label: 'Date', type: 'date', required: true },
+  { name: 'method', label: 'Method', type: 'select', options: [
+    { value: 'Call', label: 'Call' }, { value: 'Email', label: 'Email' }, { value: 'Meeting', label: 'Meeting' }, { value: 'Text', label: 'Text' }, { value: 'Other', label: 'Other' },
+  ] },
+  { name: 'summary', label: 'Summary', type: 'textarea', required: true },
+  { name: 'childId', label: 'Child (optional)', type: 'childSelect' },
+];
+export const communicationColumns: ColumnDef[] = [
+  { key: 'logDate', label: 'Date', kind: 'date' },
+  { key: 'method', label: 'Method' },
+  { key: 'summary', label: 'Summary' },
+  { key: 'child', label: 'Child', kind: 'childName' },
+];
+
+// Child story & success journal.
+export const journalFields: FieldDef[] = [
+  { name: 'childId', label: 'Child', type: 'childSelect', required: true },
+  { name: 'entryDate', label: 'Date', type: 'date', required: true },
+  { name: 'title', label: 'Title', type: 'text', placeholder: 'e.g. First day of school' },
+  { name: 'body', label: 'Story', type: 'textarea', required: true },
+];
+export const journalColumns: ColumnDef[] = [
+  { key: 'entryDate', label: 'Date', kind: 'date' },
+  { key: 'child', label: 'Child', kind: 'childName' },
+  { key: 'title', label: 'Title' },
+];

@@ -373,6 +373,63 @@ export const incidentUpdateSchema = z.object({
   resolution: longText,
 });
 
+// ── Caregiver feature CRUD (household-scoped, via the resource factory) ──
+export const behaviorLogSchema = z.object({
+  childId: shortText,
+  logDate: isoDate,
+  trigger: optionalShort,
+  emotion: optionalShort,
+  coping: optionalShort,
+  intervention: optionalShort,
+  strength: optionalShort,
+  notes: longText,
+});
+export const inventorySchema = z.object({
+  childId: optionalShort,
+  name: shortText,
+  category: optionalShort,
+  size: optionalShort,
+  quantity: z.coerce.number().int().min(0).max(100_000).optional(),
+  // Select sends the strings 'true'/'false'; coerce.boolean() would make BOTH true.
+  needed: z.union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')]).optional(),
+  notes: longText,
+});
+export const communicationLogSchema = z.object({
+  childId: optionalShort,
+  contactId: optionalShort,
+  logDate: isoDate,
+  method: optionalShort,
+  summary: shortText,
+});
+export const journalSchema = z.object({
+  childId: shortText,
+  entryDate: isoDate,
+  title: optionalShort,
+  body: z.string().trim().min(1).max(5000),
+});
+
+// ── Agency: case goals, secure messages, scheduled-visit completion, override ──
+export const agencyGoalSchema = z.object({
+  childId: optionalShort,
+  title: shortText,
+  description: longText,
+  status: z.enum(['OPEN', 'IN_PROGRESS', 'MET', 'CANCELLED']).default('OPEN'),
+  targetDate: optionalDate,
+});
+export const agencyGoalUpdateSchema = z.object({
+  status: z.enum(['OPEN', 'IN_PROGRESS', 'MET', 'CANCELLED']),
+});
+export const messageSchema = z.object({
+  body: z.string().trim().min(1).max(5000),
+});
+export const agencyVisitUpdateSchema = z.object({
+  status: z.enum(['SCHEDULED', 'COMPLETED']),
+});
+// Agency admin overrides a placement decision (force a status, bypassing accept/deny).
+export const agencyPlacementOverrideSchema = z.object({
+  status: z.enum(['ACTIVE', 'TRIAL_HOME_VISIT', 'REUNIFIED', 'ENDED']),
+});
+
 // Manually grant/override a household's plan (comp / grant / scholarship account),
 // resolved by the owner's email. A paid tier is "comped" (Stripe reconcile skips
 // it); granting FREE clears the comp and hands control back to Stripe.

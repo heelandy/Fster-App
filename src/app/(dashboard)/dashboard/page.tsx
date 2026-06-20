@@ -3,6 +3,7 @@ import { requireHousehold, can } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
 import { PendingPlacements } from '@/components/pending-placements';
 import { IncidentReporter } from '@/components/incident-reporter';
+import { MessageThread } from '@/components/message-thread';
 
 function StatCard({ label, value, href }: { label: string; value: string | number; href?: string }) {
   const inner = (
@@ -20,12 +21,15 @@ export default async function DashboardOverview() {
 
   // Agency context for this home (announcements + recent oversight visits).
   const home = await prisma.household.findUnique({ where: { id: hh }, select: { agencyId: true } });
-  const [announcements, recentVisits] = await Promise.all([
+  const [announcements, recentVisits, goals] = await Promise.all([
     home?.agencyId
       ? prisma.announcement.findMany({ where: { agencyId: home.agencyId }, select: { id: true, title: true, body: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 5 })
       : [],
     home?.agencyId
-      ? prisma.visit.findMany({ where: { householdId: hh }, select: { id: true, visitType: true, summary: true, visitDate: true }, orderBy: { visitDate: 'desc' }, take: 5 })
+      ? prisma.visit.findMany({ where: { householdId: hh, status: 'COMPLETED' }, select: { id: true, visitType: true, summary: true, visitDate: true }, orderBy: { visitDate: 'desc' }, take: 5 })
+      : [],
+    can(ctx, 'goals:read')
+      ? prisma.goal.findMany({ where: { householdId: hh, NOT: { status: 'CANCELLED' } }, select: { id: true, title: true, status: true, targetDate: true }, orderBy: [{ status: 'asc' }, { createdAt: 'desc' }], take: 8 })
       : [],
   ]);
 
@@ -136,7 +140,25 @@ export default async function DashboardOverview() {
         </div>
       )}
 
+      {goals.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Case goals</h2>
+          <div className="card p-0">
+            <ul className="divide-y divide-slate-100">
+              {goals.map((g) => (
+                <li key={g.id} className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-slate-800">{g.title}{g.targetDate ? <span className="text-slate-400"> · by {g.targetDate.toLocaleDateString(undefined, { timeZone: 'UTC' })}</span> : null}</span>
+                  <span className="badge bg-slate-100 text-slate-600">{g.status.replaceAll('_', ' ').toLowerCase()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {can(ctx, 'incidents:write') && <IncidentReporter />}
+
+      {home?.agencyId && can(ctx, 'messages:read') && <MessageThread />}
 
       {ctx.role === 'BABYSITTER' && (
         <div className="mt-8 card bg-amber-50">

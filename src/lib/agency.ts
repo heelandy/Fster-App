@@ -21,11 +21,14 @@ export type AgencyCapability =
   | 'visits:manage' // record case-worker visits to a home
   | 'incidents:manage' // review/escalate/resolve incidents
   | 'announcements:manage' // broadcast announcements to homes
+  | 'goals:manage' // set/track case goals for a placement
+  | 'messages:manage' // message foster parents
+  | 'placements:override' // force a placement status, bypassing accept/deny
   | 'children:view';
 
 const MATRIX: Record<AgencyRole, AgencyCapability[]> = {
-  AGENCY_ADMIN: ['agency:manage', 'staff:manage', 'homes:manage', 'homes:create', 'homes:view', 'placements:manage', 'licensing:manage', 'visits:manage', 'incidents:manage', 'announcements:manage', 'children:view'],
-  CASE_WORKER: ['homes:create', 'homes:view', 'placements:manage', 'licensing:manage', 'visits:manage', 'incidents:manage', 'children:view'],
+  AGENCY_ADMIN: ['agency:manage', 'staff:manage', 'homes:manage', 'homes:create', 'homes:view', 'placements:manage', 'placements:override', 'licensing:manage', 'visits:manage', 'incidents:manage', 'announcements:manage', 'goals:manage', 'messages:manage', 'children:view'],
+  CASE_WORKER: ['homes:create', 'homes:view', 'placements:manage', 'licensing:manage', 'visits:manage', 'incidents:manage', 'goals:manage', 'messages:manage', 'children:view'],
   AGENCY_VIEWER: ['homes:view', 'children:view'],
 };
 

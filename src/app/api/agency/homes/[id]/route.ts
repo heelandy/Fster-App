@@ -27,7 +27,7 @@ export function GET(_req: Request, { params }: Params) {
       data: { status: 'ACTIVE', endDate: null },
     });
 
-    const [owner, children, placements, licensing, visits, upcomingAppointments] = await Promise.all([
+    const [owner, children, placements, licensing, visits, goals, trainingHours, upcomingAppointments] = await Promise.all([
       prisma.user.findUnique({ where: { id: home.ownerId }, select: { name: true, email: true } }),
       prisma.childProfile.findMany({
         where: { householdId: home.id },
@@ -48,10 +48,16 @@ export function GET(_req: Request, { params }: Params) {
       }),
       prisma.visit.findMany({
         where: { householdId: home.id },
-        select: { id: true, visitDate: true, visitType: true, summary: true },
+        select: { id: true, visitDate: true, visitType: true, summary: true, status: true },
         orderBy: { visitDate: 'desc' },
         take: 50,
       }),
+      prisma.goal.findMany({
+        where: { householdId: home.id },
+        select: { id: true, title: true, description: true, status: true, targetDate: true },
+        orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      }),
+      prisma.trainingHour.aggregate({ where: { householdId: home.id }, _sum: { hours: true }, _count: { _all: true } }),
       prisma.appointment.count({ where: { householdId: home.id, startsAt: { gte: new Date() } } }),
     ]);
 
@@ -62,6 +68,8 @@ export function GET(_req: Request, { params }: Params) {
       placements,
       licensing,
       visits,
+      goals,
+      trainingHours: { totalHours: trainingHours._sum.hours ?? 0, count: trainingHours._count._all },
       upcomingAppointments,
     });
   });
