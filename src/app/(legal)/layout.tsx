@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-cream-50">
       <div className="mx-auto max-w-3xl px-4 py-10">
         <Link href="/" className="mb-6 block text-lg font-bold text-brand-700">🏠 Foster Care HMS</Link>
         <div className="mb-6 rounded-lg border-l-4 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">

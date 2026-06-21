@@ -13,7 +13,14 @@ export function MessageThread() {
     const r = await fetch('/api/messages');
     if (r.ok) setItems(await r.json());
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const r = await fetch('/api/messages');
+      if (active && r.ok) setItems(await r.json());
+    })();
+    return () => { active = false; };
+  }, []);
 
   async function send(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

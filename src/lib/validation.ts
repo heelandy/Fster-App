@@ -9,6 +9,8 @@ import {
   ROUTINE_TYPE,
   MED_LOG_STATUS,
   HOUSEHOLD_ROLE,
+  COURT_HEARING_TYPE,
+  EDUCATION_RECORD_TYPE,
 } from './enums';
 
 /**
@@ -182,6 +184,41 @@ export const trainingHourSchema = z.object({
   hours: z.coerce.number().min(0).max(1000),
   completedAt: isoDate,
   provider: optionalShort,
+  category: optionalShort,
+  expiresAt: optionalDate,
+});
+
+// ── Records cluster: court hearings, education records, immunizations ──
+export const courtHearingSchema = z.object({
+  childId: z.string().cuid().optional(),
+  type: z.enum(COURT_HEARING_TYPE).default('OTHER'),
+  hearingDate: isoDate,
+  location: optionalShort,
+  judge: optionalShort,
+  attorney: optionalShort,
+  outcome: longText,
+  nextHearingDate: optionalDate,
+  notes: longText,
+});
+
+export const educationRecordSchema = z.object({
+  childId: z.string().cuid(),
+  type: z.enum(EDUCATION_RECORD_TYPE).default('OTHER'),
+  recordDate: isoDate,
+  school: optionalShort,
+  grade: optionalShort,
+  // Select sends 'true'/'false'; coerce.boolean() would make BOTH true.
+  hasIep: z.union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')]).optional(),
+  notes: longText,
+});
+
+export const immunizationSchema = z.object({
+  childId: z.string().cuid(),
+  vaccine: shortText,
+  dateGiven: isoDate,
+  nextDoseDate: optionalDate,
+  provider: optionalShort,
+  notes: longText,
 });
 
 export const checkoutSchema = z.object({

@@ -11,6 +11,10 @@ import {
   inventorySchema,
   communicationLogSchema,
   journalSchema,
+  courtHearingSchema,
+  educationRecordSchema,
+  immunizationSchema,
+  trainingHourSchema,
 } from './validation';
 
 // Cast each Prisma delegate to the loose factory shape (signatures are compatible at runtime).
@@ -144,4 +148,50 @@ export const journalResource: ResourceConfig<Record<string, unknown>> = {
   include: childInclude,
   orderBy: { entryDate: 'desc' },
   stamp: (ctx) => ({ authorId: ctx.userId }),
+};
+
+// ── Records cluster (Phases 14–17) ──
+
+export const courtHearingResource: ResourceConfig<Record<string, unknown>> = {
+  delegate: asDelegate(prisma.courtHearing),
+  scope: 'court-hearings',
+  readCap: 'court:read',
+  writeCap: 'court:write',
+  schema: courtHearingSchema,
+  childField: 'optional',
+  include: childInclude,
+  orderBy: { hearingDate: 'desc' },
+  stamp: (ctx) => ({ createdById: ctx.userId }),
+};
+
+export const educationRecordResource: ResourceConfig<Record<string, unknown>> = {
+  delegate: asDelegate(prisma.educationRecord),
+  scope: 'education-records',
+  readCap: 'education:read',
+  writeCap: 'education:write',
+  schema: educationRecordSchema,
+  childField: 'required',
+  include: childInclude,
+  orderBy: { recordDate: 'desc' },
+  stamp: (ctx) => ({ authorId: ctx.userId }),
+};
+
+export const immunizationResource: ResourceConfig<Record<string, unknown>> = {
+  delegate: asDelegate(prisma.immunization),
+  scope: 'immunizations',
+  readCap: 'medical:read',
+  writeCap: 'medical:write',
+  schema: immunizationSchema,
+  childField: 'required',
+  include: childInclude,
+  orderBy: { dateGiven: 'desc' },
+};
+
+export const trainingResource: ResourceConfig<Record<string, unknown>> = {
+  delegate: asDelegate(prisma.trainingHour),
+  scope: 'training',
+  readCap: 'training:read',
+  writeCap: 'training:write',
+  schema: trainingHourSchema,
+  orderBy: { completedAt: 'desc' },
 };

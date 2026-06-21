@@ -39,6 +39,9 @@ export default async function TodayPage() {
   );
   const fmtTime = (d: Date) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const fmtDate = (d: Date) => d.toLocaleDateString();
+  // Date-only values (visits, licensing dueDate) are stored at UTC midnight; format
+  // in UTC so they show the calendar day entered, not shifted a day in other zones.
+  const fmtDateUTC = (d: Date) => d.toLocaleDateString(undefined, { timeZone: 'UTC' });
 
   return (
     <div>
@@ -66,13 +69,13 @@ export default async function TodayPage() {
 
         <Section title="Upcoming visits">
           {upcomingVisits.length === 0 ? <p className="text-sm text-slate-400">No scheduled visits.</p> : (
-            <ul className="space-y-1 text-sm">{upcomingVisits.map((v) => <li key={v.id} className="flex justify-between"><span className="text-slate-800">{v.visitType || 'Visit'}</span><span className="text-slate-500">{fmtDate(v.visitDate)}</span></li>)}</ul>
+            <ul className="space-y-1 text-sm">{upcomingVisits.map((v) => <li key={v.id} className="flex justify-between"><span className="text-slate-800">{v.visitType || 'Visit'}</span><span className="text-slate-500">{fmtDateUTC(v.visitDate)}</span></li>)}</ul>
           )}
         </Section>
 
         <Section title="Licensing due soon" href="/dashboard/licensing">
           {licensingDue.length === 0 ? <p className="text-sm text-slate-400">Nothing due soon.</p> : (
-            <ul className="space-y-1 text-sm">{licensingDue.map((l) => <li key={l.id} className="flex justify-between"><span className="text-slate-800">{l.name}</span><span className={['DUE_SOON', 'EXPIRED'].includes(l.status) ? 'text-red-600' : 'text-slate-500'}>{l.dueDate ? fmtDate(l.dueDate) : l.status.replaceAll('_', ' ').toLowerCase()}</span></li>)}</ul>
+            <ul className="space-y-1 text-sm">{licensingDue.map((l) => <li key={l.id} className="flex justify-between"><span className="text-slate-800">{l.name}</span><span className={['DUE_SOON', 'EXPIRED'].includes(l.status) ? 'text-red-600' : 'text-slate-500'}>{l.dueDate ? fmtDateUTC(l.dueDate) : l.status.replaceAll('_', ' ').toLowerCase()}</span></li>)}</ul>
           )}
         </Section>
       </div>

@@ -182,6 +182,31 @@ enum RoutineType {
   CUSTOM
 }
 
+// Court hearing categories (Phase 15 — Court Management).
+enum CourtHearingType {
+  PRELIMINARY
+  ADJUDICATION
+  DISPOSITION
+  REVIEW
+  PERMANENCY
+  TERMINATION
+  ADOPTION
+  STATUS_CONFERENCE
+  OTHER
+}
+
+// Education record categories (Phase 16 — Education Management).
+enum EducationRecordType {
+  ENROLLMENT
+  IEP
+  MEETING
+  GRADE_REPORT
+  ATTENDANCE
+  CONCERN
+  ACHIEVEMENT
+  OTHER
+}
+
 enum TicketStatus {
   OPEN // awaiting staff
   PENDING // awaiting user reply
@@ -289,6 +314,9 @@ model Household {
   inventory    InventoryItem[]
   communications CommunicationLog[]
   journalEntries JournalEntry[]
+  courtHearings   CourtHearing[]
+  educationRecords EducationRecord[]
+  immunizations   Immunization[]
   subscription Subscription?
 
   @@index([ownerId])
@@ -381,6 +409,9 @@ model ChildProfile {
   inventory    InventoryItem[]
   communications CommunicationLog[]
   journalEntries JournalEntry[]
+  courtHearings   CourtHearing[]
+  educationRecords EducationRecord[]
+  immunizations   Immunization[]
 
   @@index([householdId])
 }
@@ -564,6 +595,72 @@ model JournalEntry {
 
   @@index([householdId, entryDate])
   @@index([childId, entryDate])
+}
+
+/// A court hearing for a child's case (Phase 15 — Court Management). Permanency,
+/// review, adoption, etc., with judge / attorney / outcome and the next date.
+model CourtHearing {
+  id              String           @id @default(cuid())
+  householdId     String
+  household       Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId         String?
+  child           ChildProfile?    @relation(fields: [childId], references: [id], onDelete: SetNull)
+  type            CourtHearingType @default(OTHER)
+  hearingDate     DateTime
+  location        String?
+  judge           String?
+  attorney        String?
+  outcome         String? // ruling / orders made at the hearing
+  nextHearingDate DateTime?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([householdId, hearingDate])
+  @@index([childId])
+}
+
+/// A school / education record for a child (Phase 16 — Education Management):
+/// enrollment, IEP, grade report, attendance, meeting, concern.
+model EducationRecord {
+  id          String              @id @default(cuid())
+  householdId String
+  household   Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId     String
+  child       ChildProfile        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  type        EducationRecordType @default(OTHER)
+  recordDate  DateTime
+  school      String?
+  grade       String? // grade level or grade/score, free-form
+  hasIep      Boolean             @default(false)
+  notes       String?
+  authorId    String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([householdId, recordDate])
+  @@index([childId])
+}
+
+/// A vaccination / immunization record for a child (Phase 17 — Medical Management),
+/// complementing Medication. Tracks the dose given and an optional next-dose date.
+model Immunization {
+  id           String        @id @default(cuid())
+  householdId  String
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  childId      String
+  child        ChildProfile  @relation(fields: [childId], references: [id], onDelete: Cascade)
+  vaccine      String
+  dateGiven    DateTime
+  nextDoseDate DateTime?
+  provider     String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([householdId])
+  @@index([childId])
 }
 
 // ───────────────────────────── Appointments ─────────────────────────────
@@ -817,6 +914,10 @@ model TrainingHour {
   hours       Float
   completedAt DateTime
   provider    String?
+  // Phase 14 — Training Management: certificate category and renewal/expiry date
+  // so CPR / First Aid / Trauma-Informed certifications can be tracked + renewed.
+  category    String? // Orientation, Annual, CPR, First Aid, Trauma-Informed, Behavioral, Other
+  expiresAt   DateTime?
   createdAt   DateTime  @default(now())
 
   @@index([householdId])

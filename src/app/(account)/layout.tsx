@@ -14,7 +14,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
     redirect('/login');
   }
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-cream-50">
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="mb-6 flex items-center justify-between">
           <Link href="/dashboard" className="text-sm text-brand-700 hover:underline">← Back to dashboard</Link>

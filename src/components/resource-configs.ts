@@ -3,6 +3,9 @@ import {
   APPOINTMENT_TYPE,
   CONTACT_ROLE,
   EXPENSE_CATEGORY,
+  COURT_HEARING_TYPE,
+  EDUCATION_RECORD_TYPE,
+  TRAINING_CATEGORY,
   toOptions,
 } from '@/lib/enums';
 
@@ -165,4 +168,78 @@ export const journalColumns: ColumnDef[] = [
   { key: 'entryDate', label: 'Date', kind: 'date' },
   { key: 'child', label: 'Child', kind: 'childName' },
   { key: 'title', label: 'Title' },
+];
+
+// Court hearings (Phase 15).
+export const courtFields: FieldDef[] = [
+  { name: 'type', label: 'Hearing type', type: 'select', options: toOptions(COURT_HEARING_TYPE) },
+  { name: 'hearingDate', label: 'Hearing date', type: 'datetime', required: true },
+  { name: 'childId', label: 'Child (optional)', type: 'childSelect' },
+  { name: 'location', label: 'Court / location', type: 'text' },
+  { name: 'judge', label: 'Judge', type: 'text' },
+  { name: 'attorney', label: 'Attorney', type: 'text' },
+  { name: 'nextHearingDate', label: 'Next hearing', type: 'date' },
+  { name: 'outcome', label: 'Outcome / orders', type: 'textarea' },
+  { name: 'notes', label: 'Notes', type: 'textarea' },
+];
+export const courtColumns: ColumnDef[] = [
+  { key: 'hearingDate', label: 'When', kind: 'datetime', proximity: true },
+  { key: 'type', label: 'Type', kind: 'enum' },
+  { key: 'child', label: 'Child', kind: 'childName' },
+  { key: 'judge', label: 'Judge' },
+  { key: 'nextHearingDate', label: 'Next', kind: 'date', proximity: true },
+];
+
+// Education records (Phase 16).
+export const educationFields: FieldDef[] = [
+  { name: 'childId', label: 'Child', type: 'childSelect', required: true },
+  { name: 'type', label: 'Record type', type: 'select', options: toOptions(EDUCATION_RECORD_TYPE) },
+  { name: 'recordDate', label: 'Date', type: 'date', required: true },
+  { name: 'school', label: 'School', type: 'text' },
+  { name: 'grade', label: 'Grade / score', type: 'text', placeholder: 'e.g. 4th grade, B+' },
+  { name: 'hasIep', label: 'On an IEP?', type: 'select', options: [{ value: 'false', label: 'No' }, { value: 'true', label: 'Yes — has an IEP' }] },
+  { name: 'notes', label: 'Notes', type: 'textarea' },
+];
+export const educationColumns: ColumnDef[] = [
+  { key: 'recordDate', label: 'Date', kind: 'date' },
+  { key: 'type', label: 'Type', kind: 'enum' },
+  { key: 'child', label: 'Child', kind: 'childName' },
+  { key: 'school', label: 'School' },
+  { key: 'grade', label: 'Grade' },
+  { key: 'hasIep', label: 'IEP', kind: 'enum' },
+];
+
+// Immunizations (Phase 17).
+export const immunizationFields: FieldDef[] = [
+  { name: 'childId', label: 'Child', type: 'childSelect', required: true },
+  { name: 'vaccine', label: 'Vaccine', type: 'text', required: true, placeholder: 'e.g. MMR, Flu' },
+  { name: 'dateGiven', label: 'Date given', type: 'date', required: true },
+  { name: 'nextDoseDate', label: 'Next dose due', type: 'date' },
+  { name: 'provider', label: 'Provider', type: 'text' },
+  { name: 'notes', label: 'Notes', type: 'textarea' },
+];
+export const immunizationColumns: ColumnDef[] = [
+  { key: 'dateGiven', label: 'Given', kind: 'date' },
+  { key: 'vaccine', label: 'Vaccine' },
+  { key: 'child', label: 'Child', kind: 'childName' },
+  { key: 'nextDoseDate', label: 'Next dose', kind: 'date', proximity: true },
+  { key: 'provider', label: 'Provider' },
+];
+
+// Training & certifications (Phase 14).
+export const trainingFields: FieldDef[] = [
+  { name: 'title', label: 'Course / certificate', type: 'text', required: true, placeholder: 'e.g. CPR Certification' },
+  { name: 'category', label: 'Category', type: 'select', options: toOptions(TRAINING_CATEGORY) },
+  { name: 'hours', label: 'Hours', type: 'number', required: true },
+  { name: 'completedAt', label: 'Completed', type: 'date', required: true },
+  { name: 'expiresAt', label: 'Expires / renew by', type: 'date' },
+  { name: 'provider', label: 'Provider', type: 'text' },
+];
+export const trainingColumns: ColumnDef[] = [
+  { key: 'completedAt', label: 'Completed', kind: 'date' },
+  { key: 'title', label: 'Course' },
+  { key: 'category', label: 'Category' },
+  { key: 'hours', label: 'Hours' },
+  { key: 'expiresAt', label: 'Expires', kind: 'date', proximity: true },
+  { key: 'provider', label: 'Provider' },
 ];

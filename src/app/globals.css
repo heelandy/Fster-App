@@ -7,31 +7,33 @@
 }
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  /* Soft warm cream surface to match the "Foster" brand. */
+  @apply text-slate-800 antialiased;
+  background-color: #fbf4ee;
 }
 
 .card {
-  @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
+  @apply rounded-2xl border border-cream-200 bg-white p-5 shadow-sm;
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-400 disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-50;
 }
 
 .btn-primary {
-  @apply btn bg-brand-600 text-white hover:bg-brand-700;
+  @apply btn bg-brand-500 text-white shadow-sm hover:bg-brand-600;
 }
 
 .btn-secondary {
-  @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  @apply btn border border-cream-200 bg-white text-slate-700 hover:bg-cream-50;
 }
 
 .btn-danger {
-  @apply btn bg-red-600 text-white hover:bg-red-700;
+  @apply btn bg-red-500 text-white hover:bg-red-600;
 }
 
 .input {
-  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
+  @apply w-full rounded-xl border border-cream-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-1 focus:ring-brand-400;
 }
 
 .label {

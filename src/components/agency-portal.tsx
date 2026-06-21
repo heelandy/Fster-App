@@ -415,7 +415,15 @@ function HomeDetailPanel({ detail, canAssign, isAdmin, homes, onClose, onAssigne
     const r = await fetch(`/api/agency/homes/${detail.home.id}/messages`);
     if (r.ok) setThread(await r.json());
   }, [detail.home.id]);
-  useEffect(() => { void loadThread(); }, [loadThread]);
+  useEffect(() => {
+    let active = true;
+    setThread(null);
+    void (async () => {
+      const r = await fetch(`/api/agency/homes/${detail.home.id}/messages`);
+      if (active && r.ok) setThread(await r.json());
+    })();
+    return () => { active = false; };
+  }, [detail.home.id]);
 
   async function assign(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

@@ -44,8 +44,13 @@ export function GET(req: Request) {
     }));
 
     if (new URL(req.url).searchParams.get('format') === 'csv') {
+      // Neutralize CSV formula injection: a leading =/+/-/@ is prefixed with a quote.
+      const cell = (s: string) => {
+        const clean = s.replace(/[",\r\n]/g, ' ');
+        return /^[=+\-@]/.test(clean) ? `'${clean}` : clean;
+      };
       const header = 'Staff,Role,Placements,Visits';
-      const body = staffPerf.map((s) => `${s.name.replace(/[",]/g, ' ')},${s.role},${s.placements},${s.visits}`).join('\n');
+      const body = staffPerf.map((s) => `${cell(s.name)},${s.role},${s.placements},${s.visits}`).join('\n');
       return new Response(`${header}\n${body}\n`, {
         status: 200,
         headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="agency-staff-report.csv"', 'Cache-Control': 'no-store' },

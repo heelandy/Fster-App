@@ -49,6 +49,14 @@ export type Capability =
   | 'communications:write'
   | 'journal:read'
   | 'journal:write'
+  | 'court:read'
+  | 'court:write'
+  | 'education:read'
+  | 'education:write'
+  | 'medical:read'
+  | 'medical:write'
+  | 'training:read'
+  | 'training:write'
   | 'goals:read'
   | 'messages:read'
   | 'messages:write';
@@ -86,6 +94,14 @@ const FOSTER_PARENT_CAPS: Capability[] = [
   'communications:write',
   'journal:read',
   'journal:write',
+  'court:read',
+  'court:write',
+  'education:read',
+  'education:write',
+  'medical:read',
+  'medical:write',
+  'training:read',
+  'training:write',
   'goals:read',
   'messages:read',
   'messages:write',
@@ -121,17 +137,27 @@ const CO_PARENT_CAPS: Capability[] = [
   'communications:write',
   'journal:read',
   'journal:write',
+  'court:read',
+  'court:write',
+  'education:read',
+  'education:write',
+  'medical:read',
+  'medical:write',
+  'training:read',
+  'training:write',
   'goals:read',
   'messages:read',
   'messages:write',
 ];
 
 // Babysitter / respite: limited care instructions only. No documents, no legal,
-// no expenses, no licensing, read-only.
+// no expenses, no licensing, read-only. May see health info (meds + immunizations)
+// but NOT court/legal records.
 const BABYSITTER_CAPS: Capability[] = [
   'children:read',
   'careLogs:read',
   'medications:read',
+  'medical:read',
   'routines:read',
   'contacts:read',
 ];
