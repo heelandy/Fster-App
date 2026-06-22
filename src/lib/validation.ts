@@ -35,14 +35,26 @@ export const password = z
   .regex(/[A-Z]/, 'Include an uppercase letter')
   .regex(/[0-9]/, 'Include a number');
 
-export const registerSchema = z.object({
-  name: shortText,
-  email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
-  password,
-  householdName: shortText,
-  // Cloudflare Turnstile token — only required/verified when CAPTCHA is configured.
-  captchaToken: z.string().max(4000).optional(),
-});
+export const registerSchema = z
+  .object({
+    name: shortText,
+    email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
+    password,
+    // Sign up as a foster parent (creates a household) or an agency (creates an
+    // agency the user becomes admin of). Defaults to FOSTER_PARENT for back-compat.
+    role: z.enum(['FOSTER_PARENT', 'AGENCY']).default('FOSTER_PARENT'),
+    householdName: optionalShort,
+    agencyName: optionalShort,
+    // Cloudflare Turnstile token — only required/verified when CAPTCHA is configured.
+    captchaToken: z.string().max(4000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.role === 'AGENCY') {
+      if (!data.agencyName) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['agencyName'], message: 'Agency name is required.' });
+    } else if (!data.householdName) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['householdName'], message: 'Household name is required.' });
+    }
+  });
 
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -378,6 +390,15 @@ export const agencyVisitSchema = z.object({
   visitDate: z.coerce.date(),
   visitType: optionalShort,
   summary: longText,
+});
+// A foster parent logs an (often unscheduled) visit to their own home. The visitor
+// ("who") and the reason (summary) are both required.
+export const householdVisitSchema = z.object({
+  visitDate: isoDate,
+  visitType: optionalShort,
+  visitor: shortText,
+  summary: z.string().trim().min(1).max(5000),
+  childId: z.string().cuid().optional(),
 });
 // A foster parent accepts (Y) or declines (N) an assigned placement.
 export const placementRespondSchema = z.object({

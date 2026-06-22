@@ -142,6 +142,22 @@ export function sendInvite(to: string, householdName: string, link: string): Pro
   });
 }
 
+/** Sent when an agency admin invites a new staff member by email. */
+export function sendAgencyInvite(to: string, agencyName: string, link: string): Promise<SendResult> {
+  const safeName = escapeHtml(agencyName);
+  const safeLink = escapeHtml(link);
+  return deliver({
+    to,
+    subject: `You've been invited to join ${agencyName} on Foster Care HMS`,
+    html: emailLayout(
+      `Join ${safeName}`,
+      `<p style="font-size:14px;line-height:1.6">You’ve been invited to join <strong>${safeName}</strong> as staff in Foster Care HMS. Click below to accept — you’ll create an account (or sign in) and be added to the agency automatically. This invite expires in 7 days.</p>
+       <p style="margin:24px 0"><a href="${safeLink}" style="background:#b45309;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;display:inline-block">Accept invitation</a></p>
+       <p style="font-size:12px;color:#64748b;word-break:break-all">Or paste this link into your browser:<br/>${safeLink}</p>`,
+    ),
+  });
+}
+
 /** Sent when an admin provisions a new account: the user sets their own password. */
 export function sendAccountSetup(to: string, link: string): Promise<SendResult> {
   const safeLink = escapeHtml(link);

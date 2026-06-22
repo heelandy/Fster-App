@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   registerSchema, childSchema, expenseSchema, contactSchema,
   adminUserActionSchema, adminCreateUserSchema, adminRefundSchema, adminCreditSchema,
+  householdVisitSchema,
 } from './validation';
 
 describe('registerSchema password policy', () => {
@@ -15,6 +16,28 @@ describe('registerSchema password policy', () => {
     const r = registerSchema.safeParse({ ...base, email: 'Pat@Example.COM', password: 'GoodPass123' });
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.email).toBe('pat@example.com');
+  });
+});
+
+describe('registerSchema roles', () => {
+  const creds = { name: 'Pat', email: 'pat@example.com', password: 'GoodPass123' };
+  it('defaults to FOSTER_PARENT and requires a household name', () => {
+    const ok = registerSchema.safeParse({ ...creds, householdName: 'Home' });
+    expect(ok.success).toBe(true);
+    if (ok.success) expect(ok.data.role).toBe('FOSTER_PARENT');
+    expect(registerSchema.safeParse(creds).success).toBe(false); // no householdName
+  });
+  it('requires an agency name when role is AGENCY', () => {
+    expect(registerSchema.safeParse({ ...creds, role: 'AGENCY', agencyName: 'Bright Futures' }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...creds, role: 'AGENCY' }).success).toBe(false); // no agencyName
+  });
+});
+
+describe('householdVisitSchema', () => {
+  it('requires visitor and reason (summary)', () => {
+    expect(householdVisitSchema.safeParse({ visitDate: '2026-01-01', visitor: 'Jane', summary: 'Monthly check-in' }).success).toBe(true);
+    expect(householdVisitSchema.safeParse({ visitDate: '2026-01-01', summary: 'x' }).success).toBe(false); // no visitor
+    expect(householdVisitSchema.safeParse({ visitDate: '2026-01-01', visitor: 'Jane' }).success).toBe(false); // no reason
   });
 });
 

@@ -334,6 +334,25 @@ model Agency {
   members    AgencyMember[]
   households Household[]
   announcements Announcement[]
+  invites    AgencyInvite[]
+}
+
+// Email-based invitation to join an agency as staff. Mirrors HouseholdInvite:
+// only a hash of the token is stored; the raw token travels in the emailed link.
+model AgencyInvite {
+  id          String     @id @default(cuid())
+  agencyId    String
+  agency      Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  email       String
+  role        AgencyRole @default(CASE_WORKER)
+  tokenHash   String     @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@index([agencyId])
+  @@index([email])
 }
 
 enum AgencyRole {
@@ -445,6 +464,7 @@ model Visit {
   child       ChildProfile? @relation(fields: [childId], references: [id], onDelete: SetNull)
   agencyId    String?
   visitType   String? // Home visit, Court, School, Medical, Other
+  visitor     String? // who visited (required for foster-parent-logged visits)
   visitDate   DateTime
   status      VisitStatus @default(COMPLETED) // future-dated visits are SCHEDULED
   summary     String?

@@ -38,31 +38,36 @@ export function POST(req: Request) {
 
     const passwordHash = await hashPassword(data.password);
 
-    // Create the user, their first household, owner membership, and a FREE
-    // subscription atomically.
+    // Create the user plus EITHER a foster household (with owner membership + a FREE
+    // subscription) OR an agency the user becomes the first admin of — atomically.
     const user = await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
         data: { email: data.email, name: data.name, passwordHash },
       });
-      const household = await tx.household.create({
-        data: { name: data.householdName, ownerId: u.id },
-      });
-      await tx.householdMember.create({
-        data: {
-          householdId: household.id,
-          userId: u.id,
-          role: 'FOSTER_PARENT',
-          acceptedAt: new Date(),
-        },
-      });
-      await tx.subscription.create({
-        data: { householdId: household.id, tier: 'FREE', status: 'ACTIVE' },
-      });
+      if (data.role === 'AGENCY') {
+        const agency = await tx.agency.create({ data: { name: data.agencyName! } });
+        await tx.agencyMember.create({ data: { agencyId: agency.id, userId: u.id, role: 'AGENCY_ADMIN' } });
+      } else {
+        const household = await tx.household.create({
+          data: { name: data.householdName!, ownerId: u.id },
+        });
+        await tx.householdMember.create({
+          data: {
+            householdId: household.id,
+            userId: u.id,
+            role: 'FOSTER_PARENT',
+            acceptedAt: new Date(),
+          },
+        });
+        await tx.subscription.create({
+          data: { householdId: household.id, tier: 'FREE', status: 'ACTIVE' },
+        });
+      }
       return u;
     });
 
-    await logSecurity({ actorId: user.id, event: 'REGISTERED', ip: info.ip, metadata: { email: data.email } });
-    await notifyAdmins({ type: 'NEW_USER', message: `New sign-up: ${data.email}`, metadata: { userId: user.id } });
+    await logSecurity({ actorId: user.id, event: 'REGISTERED', ip: info.ip, metadata: { email: data.email, role: data.role } });
+    await notifyAdmins({ type: 'NEW_USER', message: `New ${data.role === 'AGENCY' ? 'agency' : 'foster parent'} sign-up: ${data.email}`, metadata: { userId: user.id } });
 
     // Send a verification email (best-effort — never block registration on it).
     try {
@@ -71,6 +76,6 @@ export function POST(req: Request) {
       console.error('[register] verification email failed:', err);
     }
 
-    return json({ ok: true }, 201);
+    return json({ ok: true, role: data.role }, 201);
   });
 }

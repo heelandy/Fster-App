@@ -43,6 +43,7 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
   const [report, setReport] = useState<ReportData | null>(null);
   const [detail, setDetail] = useState<HomeDetail | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const loadOverview = useCallback(async () => {
     const r = await fetch('/api/agency'); if (r.ok) setTotals((await r.json()).totals);
@@ -102,11 +103,13 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
     (e.target as HTMLFormElement).reset(); setHomes(null); await loadHomes(); await loadOverview();
   }
   async function addStaff(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setMsg(null);
+    e.preventDefault(); setMsg(null); setNotice(null);
     const fd = new FormData(e.currentTarget);
-    const r = await fetch('/api/agency/staff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: String(fd.get('email')), role: String(fd.get('role')) }) });
+    const email = String(fd.get('email'));
+    const r = await fetch('/api/agency/staff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, role: String(fd.get('role')) }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { setMsg(d?.error || 'Could not add staff.'); return; }
+    setNotice(d?.invited ? `Invitation emailed to ${email}.` : `${email} added to your staff.`);
     (e.target as HTMLFormElement).reset(); setStaff(null); await loadStaff(); await loadOverview();
   }
   async function removeStaff(id: string) {
@@ -160,6 +163,7 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
         {isAdmin && tabBtn('staff', 'Staff')}
       </div>
       {msg && <p className="mb-3 text-sm text-red-600">{msg}</p>}
+      {notice && <p className="mb-3 text-sm text-green-700">{notice}</p>}
 
       {tab === 'overview' && (
         totals ? (
@@ -244,15 +248,16 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
           {isAdmin && (
             <form onSubmit={addStaff} className="card flex flex-wrap items-end gap-2">
               <div>
-                <label className="label">Add staff (existing user)</label>
+                <label className="label">Invite staff by email</label>
                 <input name="email" type="email" required placeholder="email" className="input max-w-xs" />
+                <p className="mt-1 text-xs text-slate-400">Existing users are added instantly; new emails get an invite link.</p>
               </div>
               <select name="role" defaultValue="CASE_WORKER" className="input max-w-[12rem]">
                 <option value="AGENCY_ADMIN">Agency admin</option>
                 <option value="CASE_WORKER">Case worker</option>
                 <option value="AGENCY_VIEWER">Viewer</option>
               </select>
-              <button className="btn-secondary">Add</button>
+              <button className="btn-secondary">Invite</button>
             </form>
           )}
           {staff === null ? <p className="text-sm text-slate-500">Loading…</p> : (
