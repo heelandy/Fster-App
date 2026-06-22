@@ -174,7 +174,9 @@ export function AdminClient() {
     </button>
   );
 
-  const unread = stats?.totals.unreadNotifications ?? notifs.filter((n) => !n.isRead).length;
+  // Prefer the live list once it's loaded so the badge updates as soon as items
+  // are marked read; fall back to the overview stat before the list is fetched.
+  const unread = notifs.length > 0 ? notifs.filter((n) => !n.isRead).length : (stats?.totals.unreadNotifications ?? 0);
 
   return (
     <div>
@@ -335,17 +337,30 @@ export function AdminClient() {
               <p className="p-6 text-sm text-slate-500">No notifications.</p>
             ) : (
               <ul className="divide-y divide-slate-100">
-                {notifs.map((n) => (
-                  <li key={n.id} className={`flex items-center justify-between px-4 py-3 ${n.isRead ? 'opacity-60' : ''}`}>
-                    <div>
-                      <p className="text-sm text-slate-800">
-                        {n.level === 'critical' ? '🔴' : n.level === 'warning' ? '🟠' : '🔵'} {n.message}
-                      </p>
-                      <p className="text-xs text-slate-500">{n.type} · {new Date(n.createdAt).toLocaleString()}</p>
-                    </div>
-                    {!n.isRead && <button onClick={() => markNotif(n.id)} className="text-xs text-brand-700 hover:underline">Mark read</button>}
-                  </li>
-                ))}
+                {notifs.map((n) => {
+                  const dot = n.level === 'critical' ? 'bg-red-500' : n.level === 'warning' ? 'bg-amber-500' : 'bg-blue-500';
+                  return (
+                    <li key={n.id} className={n.isRead ? 'opacity-60' : ''}>
+                      {/* Clicking anywhere on the row marks the notification read. */}
+                      <button
+                        type="button"
+                        onClick={() => { if (!n.isRead) void markNotif(n.id); }}
+                        disabled={n.isRead}
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left enabled:hover:bg-slate-50"
+                      >
+                        <span>
+                          <span className="flex items-center gap-2 text-sm text-slate-800">
+                            <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden /> {n.message}
+                          </span>
+                          <span className="block text-xs text-slate-500">{n.type} · {new Date(n.createdAt).toLocaleString()}</span>
+                        </span>
+                        <span className={`shrink-0 text-xs ${n.isRead ? 'text-slate-400' : 'text-brand-700'}`}>
+                          {n.isRead ? 'Read' : 'Mark read'}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

@@ -157,7 +157,10 @@ interface PlanRow {
 function PlanCatalogue() {
   const [plans, setPlans] = useState<PlanRow[] | null>(null);
   useEffect(() => {
-    fetch('/api/admin/plans').then((r) => (r.ok ? r.json() : [])).then(setPlans).catch(() => setPlans([]));
+    fetch('/api/admin/plans')
+      .then((r) => (r.ok ? r.json() : { plans: [] }))
+      .then((d) => setPlans(d.plans ?? []))
+      .catch(() => setPlans([]));
   }, []);
   if (!plans) return null;
   const lim = (n: number) => (n === -1 ? '∞' : n);

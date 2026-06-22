@@ -1,6 +1,6 @@
 import { requireHousehold, can } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
-import { PLANS } from '@/lib/plans';
+import { resolvePlanCatalogue } from '@/lib/plan-catalogue';
 import { reconcileFromStripe } from '@/lib/billing-sync';
 import { BillingClient } from '@/components/billing-client';
 import { CountdownRedirect } from '@/components/countdown-redirect';
@@ -51,7 +51,11 @@ export default async function BillingPage({ searchParams }: { searchParams: { st
     take: 12,
   });
 
-  const plans = Object.values(PLANS).map((p) => ({
+  // Commercial fields (name/description/price) come from the admin-editable
+  // catalogue; entitlements still resolve from code. All tiers are shown here so a
+  // user always sees their current plan (the public pricing page hides inactive).
+  const catalogue = await resolvePlanCatalogue();
+  const plans = catalogue.map((p) => ({
     tier: p.tier,
     name: p.name,
     description: p.description,

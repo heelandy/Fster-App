@@ -22,13 +22,14 @@ export type AdminPermission =
   | 'analytics.view'
   | 'system.view'
   | 'logs.view'
-  | 'reports.export';
+  | 'reports.export'
+  | 'plans.manage'; // edit plan commercial fields (SUPER_ADMIN only)
 
 const ALL: AdminPermission[] = [
   'users.view', 'users.edit', 'users.suspend', 'users.delete', 'users.note',
   'admins.manage', 'payments.view', 'payments.refund', 'settings.update',
   'content.moderate', 'support.manage', 'analytics.view', 'system.view',
-  'logs.view', 'reports.export',
+  'logs.view', 'reports.export', 'plans.manage',
 ];
 
 const MATRIX: Record<AdminRole, AdminPermission[]> = {

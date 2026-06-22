@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { PLANS } from '@/lib/plans';
+import { resolvePlanCatalogue } from '@/lib/plan-catalogue';
 
 // Rendered per-request so the nonce-based CSP (set in middleware) is applied to
 // the page's scripts; a static page would carry no matching nonce and its
@@ -22,7 +22,9 @@ function price(cents: number) {
   return cents === 0 ? 'Free' : `$${(cents / 100).toFixed(0)}/mo`;
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Admin-editable commercial fields (name/price/description); inactive plans hidden.
+  const plans = (await resolvePlanCatalogue()).filter((p) => p.isActive);
   return (
     <main className="mx-auto max-w-6xl px-4 py-12">
       <header className="flex items-center justify-between">
@@ -59,7 +61,7 @@ export default function HomePage() {
       <section id="pricing" className="mt-24">
         <h2 className="text-center text-3xl font-bold text-slate-900">Plans for every household</h2>
         <div className="mt-10 grid gap-5 lg:grid-cols-4">
-          {Object.values(PLANS).map((plan) => (
+          {plans.map((plan) => (
             <div key={plan.tier} className="card flex flex-col">
               <h3 className="text-lg font-semibold text-slate-900">{plan.name}</h3>
               <p className="mt-2 text-2xl font-bold text-brand-700">{price(plan.priceCentsMonthly)}</p>

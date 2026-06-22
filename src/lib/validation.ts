@@ -488,6 +488,17 @@ export const agencyPlacementOverrideSchema = z.object({
   status: z.enum(['ACTIVE', 'TRIAL_HOME_VISIT', 'REUNIFIED', 'ENDED']),
 });
 
+// SUPER_ADMIN edits a plan's commercial fields (name/description/prices/active) via
+// the admin UI. Feature gating + limits are NOT here — they stay code-defined.
+export const adminPlanUpdateSchema = z.object({
+  tier: z.enum(['FREE', 'FAMILY', 'PRO', 'AGENCY']),
+  name: shortText.optional(),
+  description: z.string().trim().max(500).optional().or(z.literal('').transform(() => undefined)),
+  priceCentsMonthly: z.coerce.number().int().min(0).max(1_000_000_00).optional(),
+  priceCentsAnnual: z.coerce.number().int().min(0).max(1_000_000_00).optional(),
+  isActive: z.boolean().optional(),
+});
+
 // Manually grant/override a household's plan (comp / grant / scholarship account),
 // resolved by the owner's email. A paid tier is "comped" (Stripe reconcile skips
 // it); granting FREE clears the comp and hands control back to Stripe.
