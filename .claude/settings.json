@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npx prisma generate)",
+      "PowerShell(npx vitest run)",
+      "PowerShell(npx prisma migrate status)",
+      "PowerShell(npx prisma migrate dev --name agency_oversight_invites_visits --create-only)",
+      "PowerShell(npx prisma migrate dev)"
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import type { HouseholdRole, PlanTier, Subscription, Prisma } from '@prisma/client';
+import { requestCache } from './request-cache';
 import { prisma } from './prisma';
 import { auth } from './auth';
 import { Errors } from './http';
@@ -197,8 +198,12 @@ export function can(ctx: Pick<HouseholdContext, 'role' | 'permissions'>, cap: Ca
  * fresh from the database on every call (not trusted from the 8h JWT), so a
  * demoted, deactivated, or locked account loses access immediately rather than
  * at token expiry. Middleware is only a fast pre-filter; this is authoritative.
+ *
+ * Wrapped in React `cache()` so the DB reads run at most once per request even when
+ * the layout, page, and several server components each call it — still fresh per
+ * request, just not repeated within one render.
  */
-export async function requireUser() {
+export const requireUser = requestCache(async () => {
   const session = await auth();
   if (!session?.user?.id) throw Errors.unauthorized();
   const sid = session.user.sid;
@@ -238,7 +243,7 @@ export async function requireUser() {
     adminRole: user.adminRole, emailVerifiedAt: user.emailVerifiedAt,
     sessionId: sid,
   };
-}
+});
 
 /** Effective billing tier — GRACE keeps access, UNPAID/CANCELED drop to FREE. */
 export function effectiveTier(sub: Pick<Subscription, 'status' | 'tier'> | null): PlanTier {
@@ -267,8 +272,11 @@ export function bestTier(tiers: PlanTier[]): PlanTier {
 /**
  * Resolve the user's active household context. Uses the `fc_household` cookie if
  * it points at a household the user belongs to, otherwise the first membership.
+ *
+ * Wrapped in React `cache()` (keyed by `explicitId`) so the membership + subscription
+ * query is shared across the layout, page, and components in a single request.
  */
-export async function requireHousehold(explicitId?: string): Promise<HouseholdContext> {
+export const requireHousehold = requestCache(async (explicitId?: string): Promise<HouseholdContext> => {
   const user = await requireUser();
   const cookieId = cookies().get(ACTIVE_HOUSEHOLD_COOKIE)?.value;
   const wantedId = explicitId ?? cookieId ?? undefined;
@@ -327,7 +335,7 @@ export async function requireHousehold(explicitId?: string): Promise<HouseholdCo
     tier,
     subscription: sub,
   };
-}
+});
 
 /** Throw 403 unless the context grants the capability. */
 export function requireCapability(ctx: HouseholdContext, cap: Capability): void {

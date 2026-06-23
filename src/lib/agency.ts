@@ -2,6 +2,7 @@ import type { AgencyRole } from '@prisma/client';
 import { prisma } from './prisma';
 import { requireUser } from './authz';
 import { Errors } from './http';
+import { requestCache } from './request-cache';
 
 /**
  * Multi-agency access control. An agency is a tenant that oversees its OWN foster
@@ -46,22 +47,25 @@ export interface AgencyContext {
 }
 
 /** The user's agency membership, or null (no throw) — for the portal landing. */
-export async function findAgencyMembership(userId: string): Promise<AgencyContext | null> {
+export const findAgencyMembership = requestCache(async (userId: string): Promise<AgencyContext | null> => {
   const m = await prisma.agencyMember.findFirst({
     where: { userId },
     include: { agency: { select: { name: true } } },
     orderBy: { createdAt: 'asc' },
   });
   return m ? { userId, agencyId: m.agencyId, agencyName: m.agency.name, role: m.role } : null;
-}
+});
 
-/** Resolve the signed-in user's agency membership (403 if they're not staff). */
-export async function requireAgencyMember(): Promise<AgencyContext> {
+/**
+ * Resolve the signed-in user's agency membership (403 if they're not staff).
+ * Cached per request so the agency layout + page + components share one lookup.
+ */
+export const requireAgencyMember = requestCache(async (): Promise<AgencyContext> => {
   const user = await requireUser();
   const ctx = await findAgencyMembership(user.id);
   if (!ctx) throw Errors.forbidden();
   return ctx;
-}
+});
 
 export function requireAgencyCapability(ctx: AgencyContext, cap: AgencyCapability): void {
   if (!agencyCan(ctx.role, cap)) throw Errors.forbidden();

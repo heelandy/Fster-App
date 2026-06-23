@@ -318,6 +318,7 @@ model Household {
   educationRecords EducationRecord[]
   immunizations   Immunization[]
   subscription Subscription?
+  oversightRequests AgencyOversightRequest[]
 
   @@index([ownerId])
   @@index([agencyId])
@@ -335,6 +336,7 @@ model Agency {
   households Household[]
   announcements Announcement[]
   invites    AgencyInvite[]
+  oversightRequests AgencyOversightRequest[]
 }
 
 // Email-based invitation to join an agency as staff. Mirrors HouseholdInvite:
@@ -372,6 +374,32 @@ model AgencyMember {
 
   @@unique([agencyId, userId])
   @@index([userId])
+}
+
+enum OversightStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+// Consent gate for agency oversight of an EXISTING foster home. An agency requests
+// to oversee a home; the foster parent (home owner) approves or denies in-app.
+// Household.agencyId is only set once the request is APPROVED — until then the
+// agency sees nothing of that home. Mirrors the placement accept/deny pattern.
+model AgencyOversightRequest {
+  id            String          @id @default(cuid())
+  agencyId      String
+  agency        Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  householdId   String
+  household     Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  status        OversightStatus @default(PENDING)
+  requestedById String
+  createdAt     DateTime        @default(now())
+  respondedAt   DateTime?
+
+  @@unique([agencyId, householdId])
+  @@index([householdId])
+  @@index([agencyId])
 }
 
 model HouseholdMember {

@@ -404,6 +404,10 @@ export const householdVisitSchema = z.object({
 export const placementRespondSchema = z.object({
   decision: z.enum(['ACCEPTED', 'DECLINED']),
 });
+// A foster parent approves or denies an agency's request to oversee their home.
+export const oversightRespondSchema = z.object({
+  decision: z.enum(['APPROVED', 'DENIED']),
+});
 // Agency sets a home's approval/suspension status.
 export const agencyHomeStatusSchema = z.object({
   fosterStatus: z.enum(['PENDING', 'APPROVED', 'SUSPENDED']),
@@ -497,6 +501,9 @@ export const adminPlanUpdateSchema = z.object({
   priceCentsMonthly: z.coerce.number().int().min(0).max(1_000_000_00).optional(),
   priceCentsAnnual: z.coerce.number().int().min(0).max(1_000_000_00).optional(),
   isActive: z.boolean().optional(),
+  // Opt-in: also push changed prices to Stripe (creates a new Stripe Price, archives
+  // the old one). Not a Plan column — handled separately in the route, never persisted.
+  syncStripe: z.boolean().optional(),
 });
 
 // Manually grant/override a household's plan (comp / grant / scholarship account),

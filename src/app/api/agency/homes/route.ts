@@ -43,7 +43,12 @@ export function GET() {
   });
 }
 
-/** Link a foster home to the agency by its owner's email. Agency-admin only. */
+/**
+ * Request oversight of an existing foster home by its owner's email. Agency-admin
+ * only. This does NOT link the home — it records a PENDING request the foster
+ * parent must approve in-app before the agency can see anything. The home's
+ * `agencyId` stays untouched until the parent approves.
+ */
 export function POST(req: Request) {
   return handle(async () => {
     const ctx = await requireAgencyMember();
@@ -59,10 +64,23 @@ export function POST(req: Request) {
       select: { id: true, name: true, agencyId: true },
     });
     if (!home) throw Errors.badRequest('That user does not own a foster home.');
-    if (home.agencyId && home.agencyId !== ctx.agencyId) throw Errors.conflict('That home is already overseen by another agency.');
+    if (home.agencyId === ctx.agencyId) throw Errors.conflict('You already oversee that home.');
+    if (home.agencyId) throw Errors.conflict('That home is already overseen by another agency.');
 
-    await prisma.household.update({ where: { id: home.id }, data: { agencyId: ctx.agencyId } });
-    await logSecurity({ actorId: ctx.userId, event: 'AGENCY_HOME_LINKED', metadata: { agencyId: ctx.agencyId, householdId: home.id } });
-    return json({ id: home.id, name: home.name }, 201);
+    // A still-pending request is surfaced, not duplicated. Re-requesting after a
+    // denial is allowed — the upsert resets the row to PENDING.
+    const existing = await prisma.agencyOversightRequest.findUnique({
+      where: { agencyId_householdId: { agencyId: ctx.agencyId, householdId: home.id } },
+      select: { status: true },
+    });
+    if (existing?.status === 'PENDING') throw Errors.conflict('A request for that home is already awaiting the foster parent.');
+
+    await prisma.agencyOversightRequest.upsert({
+      where: { agencyId_householdId: { agencyId: ctx.agencyId, householdId: home.id } },
+      create: { agencyId: ctx.agencyId, householdId: home.id, requestedById: ctx.userId, status: 'PENDING' },
+      update: { status: 'PENDING', requestedById: ctx.userId, respondedAt: null, createdAt: new Date() },
+    });
+    await logSecurity({ actorId: ctx.userId, event: 'AGENCY_OVERSIGHT_REQUESTED', metadata: { agencyId: ctx.agencyId, householdId: home.id } });
+    return json({ requested: true, name: home.name }, 201);
   });
 }

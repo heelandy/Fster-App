@@ -37,6 +37,7 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
   const [tab, setTab] = useState<Tab>('overview');
   const [totals, setTotals] = useState<Totals | null>(null);
   const [homes, setHomes] = useState<HomeRow[] | null>(null);
+  const [requests, setRequests] = useState<{ id: string; status: string; homeName: string; ownerName: string | null; ownerEmail: string }[] | null>(null);
   const [staff, setStaff] = useState<StaffRow[] | null>(null);
   const [incidents, setIncidents] = useState<IncidentRow[] | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementRow[] | null>(null);
@@ -50,6 +51,9 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
   }, []);
   const loadHomes = useCallback(async () => {
     const r = await fetch('/api/agency/homes'); if (r.ok) setHomes(await r.json());
+  }, []);
+  const loadRequests = useCallback(async () => {
+    const r = await fetch('/api/agency/oversight-requests'); if (r.ok) setRequests(await r.json());
   }, []);
   const loadStaff = useCallback(async () => {
     const r = await fetch('/api/agency/staff'); if (r.ok) setStaff(await r.json());
@@ -67,24 +71,27 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
   useEffect(() => { void loadOverview(); }, [loadOverview]);
   useEffect(() => {
     if (tab === 'homes' && !homes) void loadHomes();
+    if (tab === 'homes' && !requests) void loadRequests();
     if (tab === 'staff' && !staff) void loadStaff();
     if (tab === 'incidents' && !incidents) void loadIncidents();
     if (tab === 'announcements' && !announcements) void loadAnnouncements();
     if (tab === 'reports' && !report) void loadReport();
-  }, [tab, homes, staff, incidents, announcements, report, loadHomes, loadStaff, loadIncidents, loadAnnouncements, loadReport]);
+  }, [tab, homes, requests, staff, incidents, announcements, report, loadHomes, loadRequests, loadStaff, loadIncidents, loadAnnouncements, loadReport]);
 
   async function openHome(id: string) {
     setDetail(null);
     const r = await fetch(`/api/agency/homes/${id}`);
     if (r.ok) setDetail(await r.json());
   }
-  async function linkHome(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setMsg(null);
+  async function requestOversight(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setMsg(null); setNotice(null);
     const fd = new FormData(e.currentTarget);
-    const r = await fetch('/api/agency/homes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: String(fd.get('email')) }) });
+    const email = String(fd.get('email'));
+    const r = await fetch('/api/agency/homes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) { setMsg(d?.error || 'Could not link the home.'); return; }
-    (e.target as HTMLFormElement).reset(); setHomes(null); await loadHomes(); await loadOverview();
+    if (!r.ok) { setMsg(d?.error || 'Could not send the request.'); return; }
+    setNotice(`Request sent to ${email} — awaiting the foster parent's approval.`);
+    (e.target as HTMLFormElement).reset(); setRequests(null); await loadRequests(); await loadOverview();
   }
   async function unlinkHome(id: string) {
     if (!confirm('Stop overseeing this home? The foster parent keeps it.')) return;
@@ -193,16 +200,35 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
             </form>
           )}
           {isAdmin && (
-            <form onSubmit={linkHome} className="card flex flex-wrap items-end gap-2">
+            <form onSubmit={requestOversight} className="card flex flex-wrap items-end gap-2">
               <div>
-                <label className="label">Or link an existing home</label>
+                <label className="label">Or request oversight of an existing home</label>
                 <input name="email" type="email" required placeholder="foster parent’s email" className="input max-w-xs" />
+                <p className="mt-1 text-xs text-slate-400">The foster parent must approve before you can see their home.</p>
               </div>
-              <button className="btn-secondary">Link home</button>
+              <button className="btn-secondary">Send request</button>
             </form>
           )}
+          {isAdmin && requests && requests.length > 0 && (
+            <div className="card p-0">
+              <p className="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Oversight requests</p>
+              <ul className="divide-y divide-slate-100">
+                {requests.map((rq) => (
+                  <li key={rq.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                    <span className="text-slate-700">
+                      <span className="font-medium text-slate-900">{rq.homeName}</span>
+                      <span className="text-slate-500"> · {rq.ownerName || rq.ownerEmail}</span>
+                    </span>
+                    {rq.status === 'PENDING'
+                      ? <span className="badge bg-amber-100 text-amber-800">Awaiting approval</span>
+                      : <span className="badge bg-slate-200 text-slate-600">Declined</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {homes === null ? <p className="text-sm text-slate-500">Loading…</p> : homes.length === 0 ? (
-            <div className="card text-sm text-slate-500">No homes linked yet.{isAdmin ? ' Link one by the foster parent’s email above.' : ''}</div>
+            <div className="card text-sm text-slate-500">No homes linked yet.{isAdmin ? ' Request one by the foster parent’s email above.' : ''}</div>
           ) : (
             <div className="card overflow-x-auto p-0">
               <table className="w-full text-left text-sm">

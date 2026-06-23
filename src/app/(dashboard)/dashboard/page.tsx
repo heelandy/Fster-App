@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireHousehold, can } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
 import { PendingPlacements } from '@/components/pending-placements';
+import { PendingOversightRequests, RevokeOversight } from '@/components/pending-oversight-requests';
 import { IncidentReporter } from '@/components/incident-reporter';
 import { MessageThread } from '@/components/message-thread';
 
@@ -20,7 +21,20 @@ export default async function DashboardOverview() {
   const hh = ctx.householdId;
 
   // Agency context for this home (announcements + recent oversight visits).
-  const home = await prisma.household.findUnique({ where: { id: hh }, select: { agencyId: true } });
+  const home = await prisma.household.findUnique({
+    where: { id: hh },
+    select: { agencyId: true, agency: { select: { name: true } } },
+  });
+  // Pending agency oversight requests the home owner must approve/deny before any
+  // data is shared. Owner-only (household:manage).
+  const oversightRequests = can(ctx, 'household:manage')
+    ? await prisma.agencyOversightRequest.findMany({
+        where: { householdId: hh, status: 'PENDING' },
+        select: { id: true, agency: { select: { name: true } }, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      })
+    : [];
+  const oversightItems = oversightRequests.map((r) => ({ id: r.id, agencyName: r.agency.name }));
   const [announcements, recentVisits, goals] = await Promise.all([
     home?.agencyId
       ? prisma.announcement.findMany({ where: { agencyId: home.agencyId }, select: { id: true, title: true, body: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 5 })
@@ -68,7 +82,18 @@ export default async function DashboardOverview() {
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Welcome back 👋</h1>
       <p className="mb-6 text-sm text-slate-600">Here’s what’s happening in {ctx.householdName}.</p>
 
+      <PendingOversightRequests items={oversightItems} />
+
       <PendingPlacements items={pendingItems} />
+
+      {home?.agencyId && can(ctx, 'household:manage') && (
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <p className="text-sm text-slate-600">
+            Overseen by <span className="font-medium text-slate-900">{home.agency?.name ?? 'your agency'}</span>
+          </p>
+          <RevokeOversight agencyName={home.agency?.name ?? 'your agency'} />
+        </div>
+      )}
 
       {announcements.length > 0 && (
         <div className="mb-8">

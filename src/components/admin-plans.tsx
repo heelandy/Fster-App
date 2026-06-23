@@ -31,6 +31,7 @@ export function AdminPlans() {
   const [editing, setEditing] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function load() {
     const r = await fetch('/api/admin/plans');
@@ -44,9 +45,14 @@ export function AdminPlans() {
 
   async function save(tier: string, e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSaving(true);
     setError(null);
+    setNotice(null);
     const fd = new FormData(e.currentTarget);
+    const syncStripe = fd.get('syncStripe') === 'on';
+    if (syncStripe && !confirm('Also update the live price in Stripe? This creates a new Stripe Price for the new amount (used for new checkouts). Current subscribers keep their existing price.')) {
+      return;
+    }
+    setSaving(true);
     const payload = {
       tier,
       name: String(fd.get('name') || ''),
@@ -54,6 +60,7 @@ export function AdminPlans() {
       priceCentsMonthly: Math.round(Number(fd.get('priceMonthly') || 0) * 100),
       priceCentsAnnual: Math.round(Number(fd.get('priceAnnual') || 0) * 100),
       isActive: fd.get('isActive') === 'on',
+      syncStripe,
     };
     const r = await fetch('/api/admin/plans', {
       method: 'PATCH',
@@ -61,13 +68,17 @@ export function AdminPlans() {
       body: JSON.stringify(payload),
     });
     setSaving(false);
+    const d = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
       const fieldErr = d?.fields ? Object.values(d.fields).flat()[0] : null;
       setError((fieldErr as string) || d?.error || 'Could not save the plan.');
       return;
     }
     setEditing(null);
+    if (d?.stripe) {
+      if (d.stripe.ok) setNotice(d.stripe.note);
+      else setError(d.stripe.note);
+    }
     await load();
   }
 
@@ -81,6 +92,7 @@ export function AdminPlans() {
           : 'Plans & feature gating are defined in code (source of truth, tamper-proof). Editing is restricted to super admins.'}
       </p>
       {error && <p className="text-sm text-red-600">{error}</p>}
+      {notice && <p className="text-sm text-green-700">{notice}</p>}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {rows.map((p) => (
           <div key={p.tier} className="card">
@@ -110,6 +122,15 @@ export function AdminPlans() {
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input type="checkbox" name="isActive" defaultChecked={p.isActive} /> Active
                 </label>
+                {p.tier !== 'FREE' && (
+                  <label className="flex items-start gap-2 text-sm text-slate-700">
+                    <input type="checkbox" name="syncStripe" className="mt-0.5" />
+                    <span>
+                      Also update the live price in Stripe
+                      <span className="block text-xs text-slate-400">Creates a new Stripe Price for changed amounts. Current subscribers keep their price.</span>
+                    </span>
+                  </label>
+                )}
                 <div className="flex gap-2 pt-1">
                   <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? 'Saving…' : 'Save'}</button>
                   <button type="button" onClick={() => { setEditing(null); setError(null); }} className="btn-secondary text-sm">Cancel</button>
