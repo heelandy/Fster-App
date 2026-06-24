@@ -1,8 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { ShieldAlert, ShieldCheck, Clock, Upload, Trash2 } from 'lucide-react';
+import { US_STATES } from '@/lib/us-states';
 
-type Tab = 'overview' | 'homes' | 'staff' | 'incidents' | 'announcements' | 'reports';
+type Tab = 'overview' | 'homes' | 'staff' | 'incidents' | 'announcements' | 'reports' | 'branding' | 'verification';
+
+interface Branding { displayName: string | null; brandColor: string | null; hasLogo: boolean }
+interface VerificationDetails {
+  legalName: string; ein: string; npi: string; usState: string; licenseNumber: string;
+  phone: string; addressLine: string; city: string; postalCode: string; website: string;
+}
+interface Verification {
+  status: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+  submittedAt: string | null; verifiedAt: string | null; reviewNote: string | null;
+  details: VerificationDetails | null;
+}
 
 interface Totals { homes: number; staff: number; children: number; complianceAlerts: number; activePlacements: number; pendingPlacements: number; availableHomes: number; openIncidents: number }
 interface HomeRow { id: string; name: string; fosterStatus: string; ownerName: string | null; ownerEmail: string; children: number; complianceAlerts: number }
@@ -31,11 +44,13 @@ interface HomeDetail {
 const ROLE_LABEL: Record<string, string> = { AGENCY_ADMIN: 'Agency admin', CASE_WORKER: 'Case worker', AGENCY_VIEWER: 'Viewer' };
 const STATUS_BADGE: Record<string, string> = { APPROVED: 'bg-green-100 text-green-800', PENDING: 'bg-amber-100 text-amber-800', SUSPENDED: 'bg-red-100 text-red-800' };
 
-export function AgencyPortal({ role, agencyName }: { role: string; agencyName: string }) {
+export function AgencyPortal({ role, agencyName, verificationStatus }: { role: string; agencyName: string; verificationStatus: string }) {
   const isAdmin = role === 'AGENCY_ADMIN';
   const canAssign = isAdmin || role === 'CASE_WORKER';
   const [tab, setTab] = useState<Tab>('overview');
   const [totals, setTotals] = useState<Totals | null>(null);
+  const [branding, setBranding] = useState<Branding | null>(null);
+  const [verification, setVerification] = useState<Verification | null>(null);
   const [homes, setHomes] = useState<HomeRow[] | null>(null);
   const [requests, setRequests] = useState<{ id: string; status: string; homeName: string; ownerName: string | null; ownerEmail: string }[] | null>(null);
   const [staff, setStaff] = useState<StaffRow[] | null>(null);
@@ -47,7 +62,13 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
   const [notice, setNotice] = useState<string | null>(null);
 
   const loadOverview = useCallback(async () => {
-    const r = await fetch('/api/agency'); if (r.ok) setTotals((await r.json()).totals);
+    const r = await fetch('/api/agency');
+    if (r.ok) {
+      const d = await r.json();
+      setTotals(d.totals);
+      setBranding(d.branding ?? null);
+      setVerification(d.verification ?? null);
+    }
   }, []);
   const loadHomes = useCallback(async () => {
     const r = await fetch('/api/agency/homes'); if (r.ok) setHomes(await r.json());
@@ -149,17 +170,59 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
     (e.target as HTMLFormElement).reset(); setAnnouncements(null); await loadAnnouncements();
   }
 
-  const tabBtn = (k: Tab, label: string) => (
-    <button onClick={() => setTab(k)} className={`rounded-lg px-3 py-1.5 text-sm font-medium ${tab === k ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>
-  );
+  // Branding + verification (refined by /api/agency once loaded).
+  const accent = branding?.brandColor || undefined;
+  const displayName = branding?.displayName || agencyName;
+  const status = (verification?.status ?? verificationStatus) as Verification['status'];
+  const isVerified = status === 'VERIFIED';
+
+  const tabBtn = (k: Tab, label: string) => {
+    const active = tab === k;
+    return (
+      <button
+        onClick={() => setTab(k)}
+        style={active && accent ? { backgroundColor: accent } : undefined}
+        className={`rounded-lg px-3 py-1.5 text-sm font-medium ${active ? (accent ? 'text-white' : 'bg-brand-600 text-white') : 'text-slate-600 hover:bg-slate-100'}`}
+      >
+        {label}
+      </button>
+    );
+  };
 
   return (
     <div>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold text-slate-900">{agencyName}</h1>
+        <div className="flex items-center gap-3">
+          {branding?.hasLogo && (
+            // Session-resolved; no other tenant's logo is reachable. eslint-disable-next-line @next/next/no-img-element
+            <img src="/api/branding/logo" alt="" className="h-10 w-10 rounded-xl border border-cream-200 object-contain" />
+          )}
+          <h1 className="text-2xl font-semibold text-slate-900" style={accent ? { color: accent } : undefined}>{displayName}</h1>
+        </div>
         <span className="badge bg-brand-100 text-brand-800">{ROLE_LABEL[role] ?? role}</span>
       </div>
       <p className="mb-4 text-sm text-slate-600">Oversight across your agency’s foster homes. You only see homes linked to this agency.</p>
+
+      {status !== 'VERIFIED' && (
+        <div className={`mb-4 flex items-start gap-3 rounded-2xl border p-3 text-sm ${status === 'REJECTED' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+          {status === 'REJECTED' ? <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" /> : <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />}
+          <div>
+            <p className="font-medium text-slate-800">
+              {status === 'PENDING' ? 'Verification in review' : status === 'REJECTED' ? 'Verification needs attention' : 'Your agency is not verified yet'}
+            </p>
+            <p className="text-slate-600">
+              {status === 'PENDING'
+                ? 'Our team is reviewing your details. You can set up branding and invite staff now — overseeing foster homes unlocks once approved.'
+                : status === 'REJECTED'
+                ? `${verification?.reviewNote ? `Reviewer note: ${verification.reviewNote}. ` : ''}Update your details and resubmit from the Verification tab.`
+                : 'Submit your agency details for verification to unlock foster-home oversight.'}
+            </p>
+            {isAdmin && status !== 'PENDING' && (
+              <button onClick={() => setTab('verification')} className="mt-1 text-sm font-medium text-brand-700 hover:underline">Go to verification →</button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-2">
         {tabBtn('overview', 'Overview')}
@@ -168,6 +231,8 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
         {tabBtn('announcements', 'Announcements')}
         {tabBtn('reports', 'Reports')}
         {isAdmin && tabBtn('staff', 'Staff')}
+        {isAdmin && tabBtn('branding', 'Branding')}
+        {isAdmin && tabBtn('verification', isVerified ? 'Verification' : 'Verification •')}
       </div>
       {msg && <p className="mb-3 text-sm text-red-600">{msg}</p>}
       {notice && <p className="mb-3 text-sm text-green-700">{notice}</p>}
@@ -189,7 +254,16 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
 
       {tab === 'homes' && (
         <div className="space-y-4">
-          {canAssign && (
+          {!isVerified && (
+            <div className="card flex items-start gap-3 text-sm text-slate-600">
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <span>
+                Overseeing foster homes is locked until your agency is verified.
+                {isAdmin ? <> Submit your details in the <button onClick={() => setTab('verification')} className="font-medium text-brand-700 hover:underline">Verification</button> tab.</> : ' Ask your agency admin to complete verification.'}
+              </span>
+            </div>
+          )}
+          {isVerified && canAssign && (
             <form onSubmit={createHome} className="card flex flex-wrap items-end gap-2">
               <div>
                 <label className="label">Create a foster home</label>
@@ -199,7 +273,7 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
               <button className="btn-secondary">Create home</button>
             </form>
           )}
-          {isAdmin && (
+          {isVerified && isAdmin && (
             <form onSubmit={requestOversight} className="card flex flex-wrap items-end gap-2">
               <div>
                 <label className="label">Or request oversight of an existing home</label>
@@ -393,6 +467,234 @@ export function AgencyPortal({ role, agencyName }: { role: string; agencyName: s
           </div>
         )
       )}
+      {tab === 'branding' && isAdmin && <BrandingTab branding={branding} onSaved={loadOverview} />}
+      {tab === 'verification' && isAdmin && <VerificationTab verification={verification} status={status} onSaved={loadOverview} />}
+    </div>
+  );
+}
+
+function BrandingTab({ branding, onSaved }: { branding: Branding | null; onSaved: () => void | Promise<void> }) {
+  const [displayName, setDisplayName] = useState('');
+  const [color, setColor] = useState('#dd6647');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [logoVer, setLogoVer] = useState(0); // cache-bust the preview after upload/remove
+  const [hasLogo, setHasLogo] = useState(false);
+  const validColor = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#dd6647';
+
+  useEffect(() => {
+    setDisplayName(branding?.displayName ?? '');
+    setColor(branding?.brandColor || '#dd6647');
+    setHasLogo(!!branding?.hasLogo);
+  }, [branding]);
+
+  async function saveDetails(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true); setMsg(null);
+    const res = await fetch('/api/agency/branding', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName, brandColor: color }),
+    });
+    setBusy(false);
+    if (!res.ok) { const x = await res.json().catch(() => ({})); const f = x?.fields ? Object.values(x.fields).flat()[0] : null; setMsg((f as string) || x?.error || 'Could not save branding.'); return; }
+    setMsg('Branding saved.');
+    await onSaved();
+  }
+
+  async function uploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true); setMsg(null);
+    const fd = new FormData(); fd.append('file', file);
+    const res = await fetch('/api/agency/branding/logo', { method: 'POST', body: fd });
+    setBusy(false);
+    e.target.value = '';
+    if (!res.ok) { const x = await res.json().catch(() => ({})); setMsg(x?.error || 'Could not upload the logo.'); return; }
+    setHasLogo(true); setLogoVer((v) => v + 1); setMsg('Logo updated.');
+    await onSaved();
+  }
+
+  async function removeLogo() {
+    if (!confirm('Remove your agency logo?')) return;
+    setBusy(true); setMsg(null);
+    const res = await fetch('/api/agency/branding/logo', { method: 'DELETE' });
+    setBusy(false);
+    if (!res.ok) { setMsg('Could not remove the logo.'); return; }
+    setHasLogo(false); setLogoVer((v) => v + 1);
+    await onSaved();
+  }
+
+  return (
+    <div className="card space-y-4">
+      <div>
+        <h3 className="font-semibold text-slate-900">Branding</h3>
+        <p className="text-sm text-slate-600">Your logo, colour and name appear here and to the foster homes you oversee — your logo is also used as the browser-tab icon for your homes.</p>
+      </div>
+      <div className="flex items-center gap-4">
+        <span className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-cream-200 bg-cream-50 text-xs text-slate-400">
+          {hasLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={`/api/branding/logo?v=${logoVer}`} alt="Agency logo" className="h-full w-full object-contain" />
+          ) : 'No logo'}
+        </span>
+        <div className="flex flex-col gap-2">
+          <label className="btn-secondary inline-flex cursor-pointer items-center gap-1 text-sm">
+            <Upload className="h-4 w-4" /> {hasLogo ? 'Replace logo' : 'Upload logo'}
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={uploadLogo} disabled={busy} />
+          </label>
+          {hasLogo && (
+            <button onClick={removeLogo} disabled={busy} className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline">
+              <Trash2 className="h-3.5 w-3.5" /> Remove
+            </button>
+          )}
+          <p className="text-xs text-slate-400">PNG, JPEG or WebP · up to 2 MB.</p>
+        </div>
+      </div>
+      <form onSubmit={saveDetails} className="space-y-3">
+        <div>
+          <label className="label">Display name</label>
+          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="input max-w-sm" placeholder="Shown instead of the account name" />
+        </div>
+        <div>
+          <label className="label">Accent colour</label>
+          <div className="flex items-center gap-2">
+            <input type="color" value={validColor} onChange={(e) => setColor(e.target.value)} className="h-9 w-12 rounded border border-cream-200" />
+            <input value={color} onChange={(e) => setColor(e.target.value)} className="input max-w-[10rem]" placeholder="#dd6647" />
+            <span className="rounded-lg px-3 py-1.5 text-sm font-medium text-white" style={{ backgroundColor: validColor }}>Preview</span>
+          </div>
+        </div>
+        {msg && <p className="text-sm text-slate-600">{msg}</p>}
+        <button disabled={busy} className="btn-primary">{busy ? 'Saving…' : 'Save branding'}</button>
+      </form>
+    </div>
+  );
+}
+
+function VerificationTab({ verification, status, onSaved }: { verification: Verification | null; status: Verification['status']; onSaved: () => void | Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const d = verification?.details;
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    const fd = new FormData(e.currentTarget);
+    const payload = {
+      legalName: String(fd.get('legalName')),
+      ein: String(fd.get('ein')),
+      npi: String(fd.get('npi') || ''),
+      usState: String(fd.get('usState')),
+      licenseNumber: String(fd.get('licenseNumber') || ''),
+      phone: String(fd.get('phone') || ''),
+      addressLine: String(fd.get('addressLine')),
+      city: String(fd.get('city')),
+      postalCode: String(fd.get('postalCode')),
+      website: String(fd.get('website') || ''),
+    };
+    const res = await fetch('/api/agency/verification', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    setBusy(false);
+    if (!res.ok) { const x = await res.json().catch(() => ({})); const f = x?.fields ? Object.values(x.fields).flat()[0] : null; setErr((f as string) || x?.error || 'Could not submit.'); return; }
+    await onSaved();
+  }
+
+  if (status === 'VERIFIED') {
+    return (
+      <div className="card flex items-start gap-3">
+        <ShieldCheck className="mt-0.5 h-5 w-5 text-green-600" />
+        <div>
+          <p className="font-semibold text-slate-900">Your agency is verified</p>
+          <p className="text-sm text-slate-600">{verification?.verifiedAt ? `Approved ${new Date(verification.verifiedAt).toLocaleDateString()}. ` : ''}All oversight features are unlocked.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'PENDING') {
+    return (
+      <div className="space-y-4">
+        <div className="card flex items-start gap-3">
+          <Clock className="mt-0.5 h-5 w-5 text-amber-600" />
+          <div>
+            <p className="font-semibold text-slate-900">Under review</p>
+            <p className="text-sm text-slate-600">We&rsquo;re confirming your details{verification?.submittedAt ? `, submitted ${new Date(verification.submittedAt).toLocaleDateString()}` : ''}. You&rsquo;ll be able to oversee homes once approved.</p>
+          </div>
+        </div>
+        {d && <SubmittedDetails d={d} />}
+      </div>
+    );
+  }
+
+  // UNVERIFIED or REJECTED → editable form (prefilled from any prior submission).
+  return (
+    <form onSubmit={submit} className="card space-y-3">
+      <div>
+        <h3 className="font-semibold text-slate-900">Submit for verification</h3>
+        <p className="text-sm text-slate-600">Confirm you&rsquo;re a real, licensed US agency. Reviewed by our team before oversight unlocks.</p>
+      </div>
+      {status === 'REJECTED' && verification?.reviewNote && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">Reviewer note: {verification.reviewNote}</p>
+      )}
+      <div>
+        <label className="label">Registered legal name</label>
+        <input name="legalName" required defaultValue={d?.legalName || ''} className="input" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label">EIN (Tax ID)</label>
+          <input name="ein" required defaultValue={d?.ein || ''} placeholder="12-3456789" className="input" />
+        </div>
+        <div>
+          <label className="label">State</label>
+          <select name="usState" required defaultValue={d?.usState || ''} className="input">
+            <option value="" disabled>Select…</option>
+            {US_STATES.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label">State license / cert # <span className="font-normal text-slate-400">(optional)</span></label>
+          <input name="licenseNumber" defaultValue={d?.licenseNumber || ''} className="input" />
+        </div>
+        <div>
+          <label className="label">NPI <span className="font-normal text-slate-400">(optional, 10 digits)</span></label>
+          <input name="npi" defaultValue={d?.npi || ''} inputMode="numeric" className="input" />
+        </div>
+      </div>
+      <div>
+        <label className="label">Street address</label>
+        <input name="addressLine" required defaultValue={d?.addressLine || ''} className="input" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className="label">City</label><input name="city" required defaultValue={d?.city || ''} className="input" /></div>
+        <div><label className="label">ZIP code</label><input name="postalCode" required defaultValue={d?.postalCode || ''} className="input" /></div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className="label">Phone <span className="font-normal text-slate-400">(optional)</span></label><input name="phone" defaultValue={d?.phone || ''} className="input" /></div>
+        <div><label className="label">Website <span className="font-normal text-slate-400">(optional)</span></label><input name="website" defaultValue={d?.website || ''} placeholder="https://" className="input" /></div>
+      </div>
+      {err && <p className="text-sm text-red-600">{err}</p>}
+      <button disabled={busy} className="btn-primary">{busy ? 'Submitting…' : 'Submit for verification'}</button>
+    </form>
+  );
+}
+
+function SubmittedDetails({ d }: { d: VerificationDetails }) {
+  const row = (label: string, value: string) =>
+    value ? (
+      <div key={label} className="flex justify-between gap-3"><span className="text-slate-500">{label}</span><span className="font-medium text-slate-800">{value}</span></div>
+    ) : null;
+  return (
+    <div className="card space-y-1 text-sm">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Submitted details</p>
+      {row('Legal name', d.legalName)}
+      {row('EIN', d.ein)}
+      {row('NPI', d.npi)}
+      {row('State', d.usState)}
+      {row('License #', d.licenseNumber)}
+      {row('Address', [d.addressLine, d.city, d.postalCode].filter(Boolean).join(', '))}
+      {row('Phone', d.phone)}
+      {row('Website', d.website)}
     </div>
   );
 }

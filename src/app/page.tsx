@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Heart } from 'lucide-react';
 import { resolvePlanCatalogue } from '@/lib/plan-catalogue';
 
 // Rendered per-request so the nonce-based CSP (set in middleware) is applied to
@@ -28,7 +29,9 @@ export default async function HomePage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-12">
       <header className="flex items-center justify-between">
-        <span className="text-lg font-bold text-brand-700">🏠 Foster Care HMS</span>
+        <span className="flex items-center gap-2 text-lg font-bold text-brand-700">
+          <Heart className="h-5 w-5" fill="currentColor" /> Foster Care HMS
+        </span>
         <nav className="flex gap-3">
           <Link href="/login" className="btn-secondary">Log in</Link>
           <Link href="/register" className="btn-primary">Get started</Link>
@@ -75,8 +78,16 @@ export default async function HomePage() {
       </section>
 
       <footer className="mt-24 border-t border-slate-200 pt-8 text-center text-sm text-slate-500">
-        Built privacy-first. Sensitive foster care data is encrypted in transit, access-controlled,
-        and never exposed to unauthorized users.
+        <p>
+          Are you a foster agency?{' '}
+          <Link href="/register/agency" className="font-medium text-brand-700 hover:underline">
+            Register your agency →
+          </Link>
+        </p>
+        <p className="mt-3">
+          Built privacy-first. Sensitive foster care data is encrypted in transit, access-controlled,
+          and never exposed to unauthorized users.
+        </p>
       </footer>
     </main>
   );

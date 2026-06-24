@@ -8,7 +8,7 @@ vi.mock('./prisma', () => ({ prisma: { household: { findFirst: (...args: unknown
 
 import { agencyCan, requireAgencyHome, type AgencyContext } from './agency';
 
-const ctxA: AgencyContext = { userId: 'uA', agencyId: 'agencyA', agencyName: 'Agency A', role: 'AGENCY_ADMIN' };
+const ctxA: AgencyContext = { userId: 'uA', agencyId: 'agencyA', agencyName: 'Agency A', role: 'AGENCY_ADMIN', verificationStatus: 'VERIFIED' };
 
 describe('agency abilities are scoped per role (tenant cannot exceed its grants)', () => {
   it('agency admin manages staff and can override placements', () => {

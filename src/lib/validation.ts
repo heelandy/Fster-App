@@ -12,6 +12,7 @@ import {
   COURT_HEARING_TYPE,
   EDUCATION_RECORD_TYPE,
 } from './enums';
+import { US_STATE_CODES } from './us-states';
 
 /**
  * Centralised input validation. Every API mutation parses its body through one of
@@ -366,6 +367,94 @@ export const agencyStaffSchema = z.object({
 export const agencyLinkHomeSchema = z.object({
   // Link a foster home to the agency by its owner's email.
   email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
+});
+
+// ───────────────────── Agency verification + branding ─────────────────────
+
+// IRS EIN: a two-digit prefix + seven digits. Accepts with or without the dash
+// and normalises to NN-NNNNNNN. Format check only — not a live IRS lookup.
+const einField = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/\D/g, ''))
+  .refine((v) => v.length === 9, 'EIN must be 9 digits (e.g. 12-3456789).')
+  .refine((v) => !/^0{9}$/.test(v), 'Enter a valid EIN.')
+  .transform((v) => `${v.slice(0, 2)}-${v.slice(2)}`);
+
+// Two-letter US state — the core "registered in the USA" check.
+const usStateField = z
+  .string()
+  .trim()
+  .transform((v) => v.toUpperCase())
+  .pipe(z.enum(US_STATE_CODES, { errorMap: () => ({ message: 'Choose a valid US state.' }) }));
+
+// Optional 10-digit NPI (National Provider Identifier). Empty = omitted; if given
+// it must be 10 digits. Registry/Luhn validity is checked separately (free checks).
+const npiField = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal('').transform(() => undefined))
+  .transform((v) => (v ? v.replace(/\D/g, '') : undefined))
+  .refine((v) => v === undefined || /^\d{10}$/.test(v), 'NPI must be 10 digits.');
+
+const websiteField = z
+  .string()
+  .trim()
+  .max(200)
+  .url('Enter a full website URL including https://.')
+  .optional()
+  .or(z.literal('').transform(() => undefined));
+
+const phoneField = z
+  .string()
+  .trim()
+  .max(40)
+  .optional()
+  .or(z.literal('').transform(() => undefined));
+
+// The legitimacy details an agency submits for manual verification (also reused
+// by the resubmit route). Address + state + EIN let an admin confirm the agency
+// is a real US organisation.
+export const agencyVerificationSchema = z.object({
+  legalName: shortText,
+  ein: einField,
+  npi: npiField,
+  usState: usStateField,
+  licenseNumber: optionalShort,
+  phone: phoneField,
+  addressLine: shortText,
+  city: shortText,
+  postalCode: z.string().trim().min(3, 'Enter a ZIP/postal code.').max(12),
+  website: websiteField,
+});
+
+// Public agency sign-up = account credentials + display name + the verification
+// details. One transaction creates the user, the agency (PENDING review) and the
+// AGENCY_ADMIN membership.
+export const agencyRegisterSchema = agencyVerificationSchema.extend({
+  name: shortText, // the person signing up
+  email: z.string().email().max(200).transform((e) => e.toLowerCase().trim()),
+  password,
+  agencyName: shortText, // public display name of the agency
+  captchaToken: z.string().max(4000).optional(),
+});
+
+const hexColor = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, 'Use a 6-digit hex colour, e.g. #dd6647');
+
+// White-label branding the agency controls (logo is uploaded separately).
+export const agencyBrandingSchema = z.object({
+  displayName: optionalShort,
+  brandColor: hexColor.optional().or(z.literal('').transform(() => undefined)),
+});
+
+// Admin approve/reject decision on a pending agency.
+export const adminAgencyDecisionSchema = z.object({
+  action: z.enum(['approve', 'reject']),
+  note: longText,
 });
 // Create a NEW foster home for a foster parent (must be an existing user).
 export const agencyCreateHomeSchema = z.object({

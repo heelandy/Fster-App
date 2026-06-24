@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, Heart, Home, Wrench } from 'lucide-react';
@@ -47,6 +48,25 @@ function NoHousehold({ isAdmin }: { isAdmin: boolean }) {
       </div>
     </div>
   );
+}
+
+// White-label tab icon: if this foster home is overseen by an agency that has
+// uploaded a logo, use that logo as the browser-tab favicon (overrides the root
+// default). The logo is served session-scoped via /api/branding/logo.
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const ctx = await requireHousehold();
+    const home = await prisma.household.findUnique({
+      where: { id: ctx.householdId },
+      select: { agency: { select: { logoStorageKey: true } } },
+    });
+    if (home?.agency?.logoStorageKey) {
+      return { icons: { icon: '/api/branding/logo', shortcut: '/api/branding/logo' } };
+    }
+  } catch {
+    // Not signed in / no household yet — inherit the default icon.
+  }
+  return {};
 }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -130,6 +150,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
+  // White-label: if this home is overseen by an agency, surface its branding so
+  // the foster parent sees who supports them. The logo is served session-scoped.
+  const overseen = await prisma.household.findUnique({
+    where: { id: ctx.householdId },
+    select: { agency: { select: { name: true, displayName: true, brandColor: true, logoStorageKey: true } } },
+  });
+  const agencyBrand = overseen?.agency ?? null;
+
   return (
     <div className="min-h-screen bg-cream-50">
       {/* Extra bottom padding on mobile so the fixed tab bar never covers content. */}
@@ -210,6 +238,26 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <SignOutButton />
             </div>
           </div>
+          {agencyBrand && (
+            <div
+              className="mb-4 flex items-center gap-3 rounded-2xl border border-cream-200 bg-white p-3 shadow-sm"
+              style={agencyBrand.brandColor ? { borderLeftColor: agencyBrand.brandColor, borderLeftWidth: 4 } : undefined}
+            >
+              {agencyBrand.logoStorageKey && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src="/api/branding/logo" alt="" className="h-9 w-9 rounded-lg object-contain" />
+              )}
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wide text-slate-400">Overseen by</p>
+                <p
+                  className="truncate text-sm font-semibold text-slate-800"
+                  style={agencyBrand.brandColor ? { color: agencyBrand.brandColor } : undefined}
+                >
+                  {agencyBrand.displayName || agencyBrand.name}
+                </p>
+              </div>
+            </div>
+          )}
           {children}
         </main>
       </div>

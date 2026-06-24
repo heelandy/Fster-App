@@ -1,3 +1,4 @@
+import { Siren } from 'lucide-react';
 import { requireHousehold, can } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
 import { AccessDenied } from '@/components/feature-locked';
@@ -20,7 +21,9 @@ export default async function EmergencyPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">🚨 Emergency info</h1>
+      <h1 className="mb-1 flex items-center gap-2 text-2xl font-semibold text-slate-900">
+        <Siren className="h-6 w-6 text-red-500" /> Emergency info
+      </h1>
       <p className="mb-6 text-sm text-slate-600">Allergies, medications and emergency contacts at a glance.</p>
 
       {children.length === 0 ? (

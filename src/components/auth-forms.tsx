@@ -229,8 +229,6 @@ export function VerifyEmailForm({ token }: { token: string }) {
 export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState<'FOSTER_PARENT' | 'AGENCY'>('FOSTER_PARENT');
-  const isAgency = role === 'AGENCY';
   // Inlined at build; when set, the Turnstile CAPTCHA widget renders below.
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -239,14 +237,12 @@ export function RegisterForm() {
     setError(null);
     setLoading(true);
     const form = new FormData(e.currentTarget);
-    const orgName = String(form.get('orgName') || '');
     const payload = {
       name: String(form.get('name')),
       email: String(form.get('email')),
       password: String(form.get('password')),
-      role,
-      // One name field, routed to the right key by the chosen role.
-      ...(isAgency ? { agencyName: orgName } : { householdName: orgName }),
+      role: 'FOSTER_PARENT' as const,
+      householdName: String(form.get('orgName') || ''),
       // Populated by the Turnstile widget when CAPTCHA is enabled (else empty).
       captchaToken: String(form.get('cf-turnstile-response') || ''),
     };
@@ -262,35 +258,21 @@ export function RegisterForm() {
       setLoading(false);
       return;
     }
-    const data = await res.json().catch(() => ({}));
     // Auto sign-in after successful registration, then hard-navigate so the new
-    // session is fully applied. Agencies land in the agency portal.
+    // session is fully applied.
     await signIn('credentials', { email: payload.email, password: payload.password, redirect: false });
-    window.location.href = data?.role === 'AGENCY' ? '/agency' : '/dashboard';
+    window.location.href = '/dashboard';
   }
 
   return (
     <form method="post" onSubmit={onSubmit} className="space-y-4">
       <div>
-        <label className="label" htmlFor="role">I’m signing up as</label>
-        <select id="role" value={role} onChange={(e) => setRole(e.target.value as typeof role)} className="input">
-          <option value="FOSTER_PARENT">Foster Parent</option>
-          <option value="AGENCY">Agency</option>
-        </select>
-      </div>
-      <div>
         <label className="label" htmlFor="name">Your name</label>
         <input id="name" name="name" required className="input" />
       </div>
       <div>
-        <label className="label" htmlFor="orgName">{isAgency ? 'Agency name' : 'Household name'}</label>
-        <input
-          id="orgName"
-          name="orgName"
-          required
-          className="input"
-          placeholder={isAgency ? 'e.g. Bright Futures Agency' : 'e.g. The Smith Home'}
-        />
+        <label className="label" htmlFor="orgName">Household name</label>
+        <input id="orgName" name="orgName" required className="input" placeholder="e.g. The Smith Home" />
       </div>
       <div>
         <label className="label" htmlFor="email">Email</label>
@@ -314,6 +296,10 @@ export function RegisterForm() {
       <p className="text-center text-sm text-slate-600">
         Already have an account? <Link href="/login" className="text-brand-700 hover:underline">Log in</Link>
       </p>
+      <div className="rounded-2xl border border-cream-200 bg-cream-50 p-3 text-center text-sm text-slate-600">
+        Are you a foster agency?{' '}
+        <Link href="/register/agency" className="font-medium text-brand-700 hover:underline">Register your agency →</Link>
+      </div>
     </form>
   );
 }

@@ -332,11 +332,48 @@ model Agency {
   name       String
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+
+  // ── Verification ("is this a real USA agency?") ──
+  // An agency is gated from acquiring oversight of foster homes until a platform
+  // admin verifies it. Details are captured at the dedicated agency sign-up and
+  // reviewed manually (lightweight automatic checks run on the data too).
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  legalName     String? // registered legal business name
+  ein           String? // IRS Employer Identification Number, normalised NN-NNNNNNN
+  npi           String? // optional 10-digit National Provider Identifier (NPPES)
+  usState       String? // two-letter US state code (proves "in the USA")
+  licenseNumber String? // state foster-care / child-placing license number
+  phone         String?
+  addressLine   String?
+  city          String?
+  postalCode    String?
+  website       String?
+  submittedAt   DateTime? // when details were submitted for review
+  verifiedAt    DateTime?
+  verifiedById  String? // platform admin who approved
+  reviewNote    String? // admin's note / rejection reason
+
+  // ── White-label branding ──
+  // Shown in the agency portal AND to the foster homes this agency oversees.
+  displayName    String? // overrides `name` in branded surfaces when set
+  brandColor     String? // accent hex, e.g. #dd6647
+  logoStorageKey String? // private storage key for the uploaded logo (served via API)
+  logoMimeType   String?
+
   members    AgencyMember[]
   households Household[]
   announcements Announcement[]
   invites    AgencyInvite[]
   oversightRequests AgencyOversightRequest[]
+
+  @@index([verificationStatus])
+}
+
+enum VerificationStatus {
+  UNVERIFIED // created but no details submitted yet
+  PENDING    // details submitted, awaiting admin review
+  VERIFIED   // approved — oversight features unlocked
+  REJECTED   // declined; may resubmit
 }
 
 // Email-based invitation to join an agency as staff. Mirrors HouseholdInvite:

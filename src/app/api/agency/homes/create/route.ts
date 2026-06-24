@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { requireAgencyMember, requireAgencyCapability } from '@/lib/agency';
+import { requireAgencyMember, requireAgencyCapability, requireVerifiedAgency } from '@/lib/agency';
 import { handle, json, Errors } from '@/lib/http';
 import { readJson, mutationGuard } from '@/lib/api';
 import { RateLimits } from '@/lib/rate-limit';
@@ -18,6 +18,7 @@ export function POST(req: Request) {
   return handle(async () => {
     const ctx = await requireAgencyMember();
     requireAgencyCapability(ctx, 'homes:create');
+    requireVerifiedAgency(ctx);
     mutationGuard('agency-home-create', ctx.userId, RateLimits.write);
     const { homeName, fosterParentEmail } = await readJson(req, agencyCreateHomeSchema);
 

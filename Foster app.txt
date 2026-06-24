@@ -883,6 +883,17 @@ Built ✅
   ✅ Placement override + Reports/analytics tab (breakdowns + per-staff CSV)
   ✅ Billing management (Stripe plans; admin Finance / Plans tabs — PART 6)
   ✅ Audit logs (immutable security event on every agency mutation)
+  ✅ Dedicated agency sign-up (/register/agency — captures legal name, EIN, US
+       state, license #, address; shared /register is now foster-parent-only)
+  ✅ Agency verification ("is this a real USA agency?") — agencies start PENDING
+       and are gated from acquiring oversight (requireVerifiedAgency) until a
+       platform admin approves them in the admin Agencies tab (agencies.verify
+       perm). Free deterministic checks (US-state, EIN format, optional NPI
+       Luhn, address) + AUTO NPI lookup against the free CMS NPPES registry
+       (shown for admin review) + optional env-gated external provider hook
+       (AGENCY_VERIFY_API_URL/KEY). Agency sign-up linked from landing/login/register.
+  ✅ White-label branding — per-agency logo + accent colour + display name, shown
+       in the portal AND to the overseen foster parent ("Overseen by {Agency}")
 
 Future ⬜ (larger-scope vision — also tracked in PART 4)
   ⬜ Deeper outcome/compliance analytics (trends over time, cohort reporting)

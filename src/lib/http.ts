@@ -21,7 +21,7 @@ export class HttpError extends Error {
 
 export const Errors = {
   unauthorized: () => new HttpError(401, 'Authentication required.'),
-  forbidden: () => new HttpError(403, 'You do not have permission to do that.'),
+  forbidden: (msg = 'You do not have permission to do that.') => new HttpError(403, msg),
   notFound: () => new HttpError(404, 'Not found.'),
   badRequest: (msg = 'Invalid request.') => new HttpError(400, msg),
   rateLimited: () => new HttpError(429, 'Too many requests. Please slow down.'),

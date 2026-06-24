@@ -23,18 +23,19 @@ export type AdminPermission =
   | 'system.view'
   | 'logs.view'
   | 'reports.export'
-  | 'plans.manage'; // edit plan commercial fields (SUPER_ADMIN only)
+  | 'plans.manage' // edit plan commercial fields (SUPER_ADMIN only)
+  | 'agencies.verify'; // review + approve/reject agency verification
 
 const ALL: AdminPermission[] = [
   'users.view', 'users.edit', 'users.suspend', 'users.delete', 'users.note',
   'admins.manage', 'payments.view', 'payments.refund', 'settings.update',
   'content.moderate', 'support.manage', 'analytics.view', 'system.view',
-  'logs.view', 'reports.export', 'plans.manage',
+  'logs.view', 'reports.export', 'plans.manage', 'agencies.verify',
 ];
 
 const MATRIX: Record<AdminRole, AdminPermission[]> = {
   SUPER_ADMIN: ALL,
-  ADMIN: ['users.view', 'users.edit', 'users.suspend', 'users.note', 'payments.view', 'content.moderate', 'support.manage', 'analytics.view', 'system.view', 'logs.view', 'reports.export'],
+  ADMIN: ['users.view', 'users.edit', 'users.suspend', 'users.note', 'payments.view', 'content.moderate', 'support.manage', 'analytics.view', 'system.view', 'logs.view', 'reports.export', 'agencies.verify'],
   MANAGER: ['users.view', 'payments.view', 'analytics.view', 'system.view', 'logs.view', 'reports.export'],
   SUPPORT: ['users.view', 'users.note', 'users.edit', 'support.manage'],
   MODERATOR: ['users.view', 'users.suspend', 'content.moderate', 'support.manage'],

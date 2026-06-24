@@ -1,11 +1,18 @@
 /**
- * Generates the PWA / app icons as real PNG files — no external image library and
- * no fonts (so it can't hit the @vercel/og file-URL bug on this OneDrive path).
+ * Generates the app logo / PWA icons / favicon as real files — no external image
+ * library and no fonts (so it can't hit the @vercel/og file-URL bug on this
+ * OneDrive path).
  *
- * The heart is rasterized directly from its implicit curve
+ * Logo: a white HOUSE (pitched roof + body) on the coral (#dd6647) brand tile,
+ * with a white HEART cut into the house (the coral background shows through). The
+ * heart is rasterized from its implicit curve
  *   (u^2 + v^2 - 1)^3 - u^2 * v^3 <= 0
- * over a coral (#dd6647) full-bleed square (ideal for maskable icons; iOS masks
- * the corners itself). 3x3 supersampling gives smooth, anti-aliased edges.
+ * and the house from simple polygon tests. 3x3 supersampling anti-aliases edges.
+ *
+ * Outputs: public/icon-192.png, public/icon-512.png, src/app/apple-icon.png,
+ * and public/favicon.ico (kept in /public — NOT app/ — so per-agency white-label
+ * favicons set via the Metadata API can override it; see the dashboard/agency
+ * generateMetadata).
  *
  * Run:  node scripts/gen-icons.cjs
  */
@@ -34,15 +41,14 @@ const crc32 =
         };
       })();
 
+// --- heart implicit curve + auto bounding box ---
 function inHeart(u, v) {
   const a = u * u + v * v - 1;
   return a * a * a - u * u * v * v * v <= 0;
 }
-
-// Auto-measure the heart's bounding box once so we can center + scale it cleanly.
 function heartBox() {
   let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
-  const STEPS = 1600;
+  const STEPS = 1400;
   for (let i = 0; i <= STEPS; i++) {
     const u = -2 + (4 * i) / STEPS;
     for (let j = 0; j <= STEPS; j++) {
@@ -57,36 +63,49 @@ function heartBox() {
   }
   return { minU, maxU, minV, maxV };
 }
-
 const BOX = heartBox();
 
-function renderRGB(N) {
-  const cu = (BOX.minU + BOX.maxU) / 2;
-  const cv = (BOX.minV + BOX.maxV) / 2;
-  const heartSpan = Math.max(BOX.maxU - BOX.minU, BOX.maxV - BOX.minV);
-  const frac = 0.56; // heart fills 56% of the tile — inside the maskable safe zone
-  const scale = (N * frac) / heartSpan; // pixels per heart-unit
-  const cx = N / 2, cy = N / 2;
-  const ss = 3; // 3x3 supersampling
+// --- geometry (normalized [0,1], y down), inside the maskable safe zone ---
+const BODY = { x0: 0.297, x1: 0.703, y0: 0.49, y1: 0.8125 };
+const ROOF = { apexY: 0.182, baseY: 0.5, halfBase: 0.3125 }; // apex centred at x=0.5
 
+function inHouse(nx, ny) {
+  if (nx >= BODY.x0 && nx <= BODY.x1 && ny >= BODY.y0 && ny <= BODY.y1) return true;
+  if (ny >= ROOF.apexY && ny <= ROOF.baseY) {
+    const halfW = ROOF.halfBase * ((ny - ROOF.apexY) / (ROOF.baseY - ROOF.apexY));
+    if (Math.abs(nx - 0.5) <= halfW) return true;
+  }
+  return false;
+}
+
+// Heart cut into the body (coral background shows through).
+const HCU = (BOX.minU + BOX.maxU) / 2;
+const HCV = (BOX.minV + BOX.maxV) / 2;
+const HEART_W = BOX.maxU - BOX.minU;
+const HEART = { Wn: 0.24, Hx: 0.5, Hy: 0.656 };
+const HEART_SCALE = HEART.Wn / HEART_W;
+function inHeartCutout(nx, ny) {
+  const u = HCU + (nx - HEART.Hx) / HEART_SCALE;
+  const v = HCV - (ny - HEART.Hy) / HEART_SCALE; // v up
+  return inHeart(u, v);
+}
+
+function renderRGB(N) {
+  const ss = 3; // 3x3 supersampling
   const rgb = Buffer.alloc(N * N * 3);
   for (let py = 0; py < N; py++) {
     for (let px = 0; px < N; px++) {
-      let hits = 0;
+      let hits = 0; // count WHITE subsamples (house minus the heart cut-out)
       for (let sy = 0; sy < ss; sy++) {
         for (let sx = 0; sx < ss; sx++) {
-          const fx = px + (sx + 0.5) / ss;
-          const fy = py + (sy + 0.5) / ss;
-          const u = cu + (fx - cx) / scale;
-          const v = cv - (fy - cy) / scale; // v points up
-          if (inHeart(u, v)) hits++;
+          const nx = (px + (sx + 0.5) / ss) / N;
+          const ny = (py + (sy + 0.5) / ss) / N;
+          if (inHouse(nx, ny) && !inHeartCutout(nx, ny)) hits++;
         }
       }
       const t = hits / (ss * ss); // 0 = coral, 1 = white
       const o = (py * N + px) * 3;
-      for (let c = 0; c < 3; c++) {
-        rgb[o + c] = Math.round(CORAL[c] + (WHITE[c] - CORAL[c]) * t);
-      }
+      for (let c = 0; c < 3; c++) rgb[o + c] = Math.round(CORAL[c] + (WHITE[c] - CORAL[c]) * t);
     }
   }
   return rgb;
@@ -117,16 +136,36 @@ function encodePng(N, rgb) {
   return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
 }
 
+// Wrap a PNG in a single-image .ico (PNG-in-ICO, supported by all modern browsers).
+function encodeIco(pngBuf, size) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2); // type 1 = icon
+  header.writeUInt16LE(1, 4); // image count
+  const entry = Buffer.alloc(16);
+  entry[0] = size >= 256 ? 0 : size;
+  entry[1] = size >= 256 ? 0 : size;
+  entry.writeUInt16LE(1, 4); // planes
+  entry.writeUInt16LE(32, 6); // bpp
+  entry.writeUInt32LE(pngBuf.length, 8);
+  entry.writeUInt32LE(6 + 16, 12);
+  return Buffer.concat([header, entry, pngBuf]);
+}
+
 const root = path.resolve(__dirname, '..');
-const targets = [
+const pngTargets = [
   { size: 192, file: path.join(root, 'public', 'icon-192.png') },
   { size: 512, file: path.join(root, 'public', 'icon-512.png') },
   { size: 180, file: path.join(root, 'src', 'app', 'apple-icon.png') },
 ];
-
-for (const { size, file } of targets) {
+for (const { size, file } of pngTargets) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, encodePng(size, renderRGB(size)));
   console.log(`wrote ${path.relative(root, file)} (${size}x${size})`);
 }
+
+const icoFile = path.join(root, 'public', 'favicon.ico');
+fs.writeFileSync(icoFile, encodeIco(encodePng(48, renderRGB(48)), 48));
+console.log(`wrote ${path.relative(root, icoFile)} (48x48 ico)`);
+
 console.log('done');

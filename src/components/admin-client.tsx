@@ -7,6 +7,7 @@ import { AdminSystem } from './admin-system';
 import { AdminIntegrations } from './admin-integrations';
 import { AdminFinance } from './admin-finance';
 import { AdminPlans } from './admin-plans';
+import { AdminAgencies } from './admin-agencies';
 
 interface AdminUser {
   id: string;
@@ -59,7 +60,7 @@ interface Stats {
 
 const ADMIN_ROLES = ['', 'READ_ONLY', 'SUPPORT', 'MODERATOR', 'MANAGER', 'FINANCE_ADMIN', 'ADMIN', 'SUPER_ADMIN'];
 
-type Tab = 'overview' | 'users' | 'tickets' | 'analytics' | 'finance' | 'plans' | 'notifications' | 'settings' | 'integrations' | 'system' | 'security' | 'admin';
+type Tab = 'overview' | 'users' | 'agencies' | 'tickets' | 'analytics' | 'finance' | 'plans' | 'notifications' | 'settings' | 'integrations' | 'system' | 'security' | 'admin';
 
 export function AdminClient() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -188,6 +189,7 @@ export function AdminClient() {
       <div className="mb-4 flex flex-wrap gap-2">
         {tabBtn('overview', 'Overview')}
         {tabBtn('users', `Users (${users.length})`)}
+        {tabBtn('agencies', 'Agencies')}
         {tabBtn('tickets', 'Tickets')}
         {tabBtn('analytics', 'Analytics')}
         {tabBtn('finance', 'Finance')}
@@ -200,6 +202,7 @@ export function AdminClient() {
         {tabBtn('admin', 'Admin log')}
       </div>
 
+      {tab === 'agencies' && <AdminAgencies />}
       {tab === 'tickets' && <AdminTickets />}
       {tab === 'analytics' && <AdminAnalytics />}
       {tab === 'finance' && <AdminFinance />}

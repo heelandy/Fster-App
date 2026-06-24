@@ -1,4 +1,4 @@
-import type { AgencyRole } from '@prisma/client';
+import type { AgencyRole, VerificationStatus } from '@prisma/client';
 import { prisma } from './prisma';
 import { requireUser } from './authz';
 import { Errors } from './http';
@@ -44,16 +44,19 @@ export interface AgencyContext {
   agencyId: string;
   agencyName: string;
   role: AgencyRole;
+  verificationStatus: VerificationStatus;
 }
 
 /** The user's agency membership, or null (no throw) — for the portal landing. */
 export const findAgencyMembership = requestCache(async (userId: string): Promise<AgencyContext | null> => {
   const m = await prisma.agencyMember.findFirst({
     where: { userId },
-    include: { agency: { select: { name: true } } },
+    include: { agency: { select: { name: true, verificationStatus: true } } },
     orderBy: { createdAt: 'asc' },
   });
-  return m ? { userId, agencyId: m.agencyId, agencyName: m.agency.name, role: m.role } : null;
+  return m
+    ? { userId, agencyId: m.agencyId, agencyName: m.agency.name, role: m.role, verificationStatus: m.agency.verificationStatus }
+    : null;
 });
 
 /**
@@ -69,6 +72,18 @@ export const requireAgencyMember = requestCache(async (): Promise<AgencyContext>
 
 export function requireAgencyCapability(ctx: AgencyContext, cap: AgencyCapability): void {
   if (!agencyCan(ctx.role, cap)) throw Errors.forbidden();
+}
+
+/**
+ * Gate actions that acquire NEW oversight (requesting/creating homes, placing
+ * children) behind platform verification. An unverified agency can still sign in,
+ * brand itself and invite staff — it just can't reach real foster homes until a
+ * platform admin confirms it's a legitimate US agency.
+ */
+export function requireVerifiedAgency(ctx: AgencyContext): void {
+  if (ctx.verificationStatus !== 'VERIFIED') {
+    throw Errors.forbidden('Your agency must be verified before you can oversee foster homes. Submit your details for review in the portal.');
+  }
 }
 
 /** Verify a household is overseen by the caller's agency, returning it (else 403). */

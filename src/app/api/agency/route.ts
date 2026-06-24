@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/authz';
-import { requireAgencyMember } from '@/lib/agency';
+import { requireAgencyMember, agencyCan } from '@/lib/agency';
 import { handle, json, Errors } from '@/lib/http';
 import { readJson, mutationGuard } from '@/lib/api';
 import { RateLimits } from '@/lib/rate-limit';
@@ -30,6 +30,12 @@ export function GET() {
     ]);
     const availableHomes = homes.length - homesWithChildren.length;
 
+    // Branding + verification for the portal. Detailed legitimacy fields (EIN,
+    // address, license) are the agency's OWN data — returned only to agency
+    // admins (agency:manage), not to viewers/case workers.
+    const a = await prisma.agency.findUnique({ where: { id: ctx.agencyId } });
+    const canManage = agencyCan(ctx.role, 'agency:manage');
+
     return json({
       agency: { id: ctx.agencyId, name: ctx.agencyName },
       role: ctx.role,
@@ -42,6 +48,32 @@ export function GET() {
         pendingPlacements,
         availableHomes,
         openIncidents,
+      },
+      branding: {
+        displayName: a?.displayName ?? null,
+        brandColor: a?.brandColor ?? null,
+        hasLogo: !!a?.logoStorageKey,
+      },
+      verification: {
+        status: a?.verificationStatus ?? 'UNVERIFIED',
+        submittedAt: a?.submittedAt ?? null,
+        verifiedAt: a?.verifiedAt ?? null,
+        reviewNote: a?.reviewNote ?? null,
+        // Detailed fields only for admins (so they can review/resubmit).
+        details: canManage
+          ? {
+              legalName: a?.legalName ?? '',
+              ein: a?.ein ?? '',
+              npi: a?.npi ?? '',
+              usState: a?.usState ?? '',
+              licenseNumber: a?.licenseNumber ?? '',
+              phone: a?.phone ?? '',
+              addressLine: a?.addressLine ?? '',
+              city: a?.city ?? '',
+              postalCode: a?.postalCode ?? '',
+              website: a?.website ?? '',
+            }
+          : null,
       },
     });
   });

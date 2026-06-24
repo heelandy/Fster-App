@@ -71,6 +71,12 @@ const schema = z.object({
   // unset = no CAPTCHA. The site key is also read client-side via NEXT_PUBLIC_*.
   TURNSTILE_SECRET_KEY: z.string().default(''),
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().default(''),
+
+  // Optional external business-verification provider for agency sign-ups (e.g.
+  // Middesk / Cobalt Intelligence). Set BOTH to enable an automatic EIN/name/state
+  // check; unset = manual admin review only (free deterministic checks still run).
+  AGENCY_VERIFY_API_URL: z.string().default(''),
+  AGENCY_VERIFY_API_KEY: z.string().default(''),
 });
 
 const parsed = schema.safeParse(process.env);
