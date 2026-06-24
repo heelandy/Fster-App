@@ -6,7 +6,7 @@ placements, appointments, documents, routines, expenses, contacts,
 medications and licensing — plus a full platform-admin console.
 
 Build verified: Prisma schema valid · Next.js production build passing ·
-TypeScript typecheck passing · 66 unit tests passing · cybersecurity audit
+TypeScript typecheck passing · 74 unit tests passing · cybersecurity audit
 PASS (SECURITY_AUDIT_REPORT.md). See README.md / DEPLOYMENT.md.
 
 Milestones:  Core app .......... 2026-06-15
@@ -15,6 +15,12 @@ Milestones:  Core app .......... 2026-06-15
              Agency portal + case-worker roles .... 2026-06-19
              Caregiver suite + agency workflow (goals, scheduled visits,
                messaging, reports, behaviour/closet/journal/timeline, PDFs) .... 2026-06-20
+             Records cluster (court / education / immunizations / training) +
+               signup role picker + agency email staff invites +
+               foster-parent visit logging .... 2026-06-22
+             Consent-based agency oversight (in-app approve/deny + revoke) +
+               super-admin plan editing + Stripe price sync +
+               per-request query caching .... 2026-06-23
 
 LEGEND:  ✅ done   🟡 partial   ➖ not applicable to this product
          ⬜ not built (future / larger-scope vision)
@@ -905,7 +911,12 @@ Kept once, deduped against PART 1 (already built) and the agency list above:
   ✅ Emergency info mode (/dashboard/emergency — one-tap allergies, meds, contacts)
   ✅ Child story & success journal + keepsake PDF at adoption
   ⬜ Shared team portal (external caseworker/therapist/GAL/teacher scoped access)
-  ⬜ Native mobile app (responsive web today; native is the next milestone)
+  🟡 Mobile app — installable PWA now ships (web app manifest, real PNG/maskable
+       icons, service worker, native-style bottom-tab nav). PER-PLATFORM ROADMAP to
+       circle back to (install prompts, offline, Web Push, iOS/Android/desktop store
+       wrappers, accounts/costs) is documented in MOBILE_PLATFORM_PLAN.md.
+  ⬜ Native mobile app (App Store / Play Store wrappers) — see MOBILE_PLATFORM_PLAN.md
+       Phases C–E; deferred pending the PWA-only vs store-presence decision.
 Already shipped in PART 1 (NOT future): appointments, medications, documents,
 care logs, contacts, routines, and licensing-compliance reminders. Foster parents
 also: respond (Accept/Decline) to assigned placements, see agency announcements &

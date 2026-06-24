@@ -7,7 +7,7 @@ import { findAgencyMembership } from '@/lib/agency';
 import { planHasFeature } from '@/lib/plans';
 import { isFlagOn } from '@/lib/settings';
 import { DashboardNav, type NavItem } from '@/components/dashboard-nav';
-import { MobileNav } from '@/components/mobile-nav';
+import { MobileTabBar } from '@/components/mobile-tab-bar';
 import { HomeSwitcher } from '@/components/home-switcher';
 import { SignOutButton } from '@/components/sign-out-button';
 import { VerifyEmailNeeded } from '@/components/resend-verification';
@@ -132,7 +132,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-cream-50">
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">
+      {/* Extra bottom padding on mobile so the fixed tab bar never covers content. */}
+      <div className="mx-auto flex max-w-7xl gap-6 px-4 pt-6 pb-28 md:pb-6">
         <aside className="hidden w-64 shrink-0 md:block">
           <div className="sticky top-6 flex max-h-[calc(100vh-3rem)] flex-col rounded-3xl border border-cream-200 bg-white p-4 shadow-sm">
             {/* Brand */}
@@ -208,13 +209,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </div>
               <SignOutButton />
             </div>
-            <div className="mt-3">
-              <MobileNav items={items} />
-            </div>
           </div>
           {children}
         </main>
       </div>
+      {/* App-style bottom navigation (mobile only). */}
+      <MobileTabBar items={items} />
     </div>
   );
 }

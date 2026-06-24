@@ -72,6 +72,10 @@ separate tenant-portal area at its own top-level path.
 - Append-only **audit log** tables (admin actions + security events): actor, action,
   target, old→new value, IP, timestamp. No edit/delete path exists for them.
 - Iterate locally with `prisma db push`; deploy with `prisma migrate deploy`.
+- For a tracked schema change against a real DB, generate the migration with
+  `migrate dev --create-only`, confirm the SQL is **purely additive** (CREATE/ADD, no
+  DROP/rename), then apply — so a data-loss step never slips through unreviewed. Additive
+  model adds (new table, nullable column, new enum) are safe; back-fill/renames need a plan.
 
 ---
 
@@ -86,7 +90,23 @@ separate tenant-portal area at its own top-level path.
 3. **Multi-tenant org layer** (when an org oversees many tenants) — a parallel
    `requireOrgMember()` + `requireOrgCapability()` + `requireOrgResource(ctx, id)` that
    verifies the resource belongs to the caller's org before any mutation. Roles:
-   ADMIN (all) / WORKER (operational) / VIEWER (read-only).
+   ADMIN (all) / WORKER (operational) / VIEWER (read-only). Every org list/`[id]` query
+   filters by `orgId` (and `[id]` routes re-check `resource.orgId === ctx.orgId`), so one
+   org can never read another's data.
+
+   **Consent to oversight (don't auto-link):** an org gains access to a tenant's
+   *existing* data only after the tenant owner approves. The org creates a **PENDING
+   request** (a status enum + a unique `[orgId, tenantId]`), surfaced in-app for the
+   owner to Approve/Deny (the accept/decline pattern from §4). The link
+   (`tenant.orgId = …`) is set **only on approval**; the owner can **revoke** later,
+   instantly cutting the org's access (queries are org-scoped). Never set the FK directly
+   from an org-side action — that would expose private data without consent.
+
+**Per-request caching:** wrap `requireUser()` and the tenant/org resolvers in React's
+`cache()` — via a tiny `requestCache` helper that falls back to identity outside the RSC
+runtime (e.g. Vitest) — so their DB reads run **once per request** even though the layout,
+page, and several components each call them. Still re-read fresh each request (a
+demoted/banned user loses access immediately); just not repeated within one render.
 
 **GOLDEN RULE:** privileged/admin users can see aggregate data but never another
 tenant's private records, passwords, or audit history.
@@ -143,8 +163,14 @@ field/column defs + a nav entry. No bespoke controller.
 - Checkout Sessions (preferred) + Customer Portal; entitlements derive **only** from
   signed, idempotent webhooks **plus** a pull-reconcile fallback (resolves missed/delayed
   webhooks by customer id or owner email). Card data never touches your server.
-- Plan catalogue + feature gating live **in code** (source of truth, tamper-proof);
-  only Stripe Price IDs are configured via UI/env. Effective tier re-resolved per request.
+- Plan **feature gating + limits live in code** (source of truth, tamper-proof). The
+  **commercial fields** (name / description / displayed price / active) may be an
+  admin-editable DB overlay over the code defaults (resolve = code defaults ⊕ DB row);
+  entitlements never come from data. Effective tier re-resolved per request.
+- **Changing a live price:** Stripe Prices are immutable — to change one, create a NEW
+  Price on the existing Product, repoint the stored Price ID, and archive the old Price.
+  Leave existing subscriptions on the old Price (customers grandfathered, never silently
+  re-billed). Make it an opt-in, audited admin action (real outward-facing write).
 - Admin tools: in-app refunds/credits, manual comp/grant, CSV export — all audited.
 
 ---
@@ -207,8 +233,9 @@ folder→role mapping (frontend / backend / database) even though it deploys as 
 
 1. Scaffold Next.js + TS + Tailwind; add Prisma + Postgres; add NextAuth (credentials).
 2. Copy the `lib/` core: `http`, `authz` (capabilities + `requireUser`/`requireCapability`),
-   `validation` helpers, the resource factory (`household-resource` equivalent),
-   `rate-limit`, `audit`, `config`, `pdf`, and (if needed) `stripe`/`billing-sync`.
+   `request-cache` (per-request dedup helper), `validation` helpers, the resource factory
+   (`household-resource` equivalent), `rate-limit`, `audit`, `config`, `pdf`, and
+   (if needed) `stripe`/`billing-sync`.
 3. Define your tenant model + role/capability map for YOUR domain.
 4. For each entity: Prisma model → Zod schema → `ResourceConfig` → two route files →
    `<CrudResource>` page → nav entry.

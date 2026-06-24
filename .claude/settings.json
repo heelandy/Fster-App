@@ -5,7 +5,10 @@
       "PowerShell(npx vitest run)",
       "PowerShell(npx prisma migrate status)",
       "PowerShell(npx prisma migrate dev --name agency_oversight_invites_visits --create-only)",
-      "PowerShell(npx prisma migrate dev)"
+      "PowerShell(npx prisma migrate dev)",
+      "Bash(ls node_modules/sharp/package.json)",
+      "Bash(command -v magick)",
+      "Bash(command -v convert)"
     ]
   }
 }
