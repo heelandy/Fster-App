@@ -1,11 +1,20 @@
+-- Made idempotent so it can be re-applied safely on a database that already has
+-- some/all of these objects (e.g. created earlier via `prisma db push`). This is
+-- what caused the P3009 failure: `ADD COLUMN "visitor"` hit an already-existing
+-- column. Every statement below now no-ops if the object already exists.
+
 -- CreateEnum
-CREATE TYPE "OversightStatus" AS ENUM ('PENDING', 'APPROVED', 'DENIED');
+DO $$ BEGIN
+  CREATE TYPE "OversightStatus" AS ENUM ('PENDING', 'APPROVED', 'DENIED');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- AlterTable
-ALTER TABLE "Visit" ADD COLUMN     "visitor" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "visitor" TEXT;
 
 -- CreateTable
-CREATE TABLE "AgencyInvite" (
+CREATE TABLE IF NOT EXISTS "AgencyInvite" (
     "id" TEXT NOT NULL,
     "agencyId" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -20,7 +29,7 @@ CREATE TABLE "AgencyInvite" (
 );
 
 -- CreateTable
-CREATE TABLE "AgencyOversightRequest" (
+CREATE TABLE IF NOT EXISTS "AgencyOversightRequest" (
     "id" TEXT NOT NULL,
     "agencyId" TEXT NOT NULL,
     "householdId" TEXT NOT NULL,
@@ -33,28 +42,40 @@ CREATE TABLE "AgencyOversightRequest" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AgencyInvite_tokenHash_key" ON "AgencyInvite"("tokenHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "AgencyInvite_tokenHash_key" ON "AgencyInvite"("tokenHash");
 
 -- CreateIndex
-CREATE INDEX "AgencyInvite_agencyId_idx" ON "AgencyInvite"("agencyId");
+CREATE INDEX IF NOT EXISTS "AgencyInvite_agencyId_idx" ON "AgencyInvite"("agencyId");
 
 -- CreateIndex
-CREATE INDEX "AgencyInvite_email_idx" ON "AgencyInvite"("email");
+CREATE INDEX IF NOT EXISTS "AgencyInvite_email_idx" ON "AgencyInvite"("email");
 
 -- CreateIndex
-CREATE INDEX "AgencyOversightRequest_householdId_idx" ON "AgencyOversightRequest"("householdId");
+CREATE INDEX IF NOT EXISTS "AgencyOversightRequest_householdId_idx" ON "AgencyOversightRequest"("householdId");
 
 -- CreateIndex
-CREATE INDEX "AgencyOversightRequest_agencyId_idx" ON "AgencyOversightRequest"("agencyId");
+CREATE INDEX IF NOT EXISTS "AgencyOversightRequest_agencyId_idx" ON "AgencyOversightRequest"("agencyId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AgencyOversightRequest_agencyId_householdId_key" ON "AgencyOversightRequest"("agencyId", "householdId");
+CREATE UNIQUE INDEX IF NOT EXISTS "AgencyOversightRequest_agencyId_householdId_key" ON "AgencyOversightRequest"("agencyId", "householdId");
 
 -- AddForeignKey
-ALTER TABLE "AgencyInvite" ADD CONSTRAINT "AgencyInvite_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "Agency"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "AgencyInvite" ADD CONSTRAINT "AgencyInvite_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "Agency"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AgencyOversightRequest" ADD CONSTRAINT "AgencyOversightRequest_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "Agency"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "AgencyOversightRequest" ADD CONSTRAINT "AgencyOversightRequest_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "Agency"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AgencyOversightRequest" ADD CONSTRAINT "AgencyOversightRequest_householdId_fkey" FOREIGN KEY ("householdId") REFERENCES "Household"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "AgencyOversightRequest" ADD CONSTRAINT "AgencyOversightRequest_householdId_fkey" FOREIGN KEY ("householdId") REFERENCES "Household"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
