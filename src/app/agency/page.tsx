@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/authz';
 import { findAgencyMembership } from '@/lib/agency';
 import { AgencyCreate } from '@/components/agency-create';
 import { AgencyPortal } from '@/components/agency-portal';
+import { IdleLogout } from '@/components/idle-logout';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,12 +26,22 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AgencyPage() {
   const user = await requireUser();
   const member = await findAgencyMembership(user.id);
-  if (!member) return <AgencyCreate />;
+  if (!member) {
+    return (
+      <>
+        <AgencyCreate />
+        <IdleLogout />
+      </>
+    );
+  }
   return (
-    <AgencyPortal
-      role={member.role}
-      agencyName={member.agencyName}
-      verificationStatus={member.verificationStatus}
-    />
+    <>
+      <AgencyPortal
+        role={member.role}
+        agencyName={member.agencyName}
+        verificationStatus={member.verificationStatus}
+      />
+      <IdleLogout />
+    </>
   );
 }

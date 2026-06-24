@@ -517,6 +517,10 @@ model Placement {
   createdAt     DateTime        @default(now())
 
   @@index([childId])
+  // Agency dashboards count placements by status / parent-response across a home's
+  // children — index those filters so the counts don't scan the whole table.
+  @@index([status])
+  @@index([parentResponse])
 }
 
 /// A recorded visit to a foster home — a case-worker home visit, court date,
@@ -841,7 +845,9 @@ model Medication {
 
   logs MedicationLog[]
 
-  @@index([householdId])
+  // The "active medications" count/list filters householdId + isActive on every
+  // dashboard load — a composite index serves both that and householdId-only.
+  @@index([householdId, isActive])
   @@index([childId])
 }
 
@@ -989,6 +995,9 @@ model LicensingRequirement {
   updatedAt   DateTime        @updatedAt
 
   @@index([householdId, dueDate])
+  // Compliance-alert counts filter householdId + status IN (DUE_SOON, EXPIRED)
+  // across the agency's homes — index the status filter directly.
+  @@index([householdId, status])
 }
 
 model TrainingHour {

@@ -12,6 +12,7 @@ import { MobileTabBar } from '@/components/mobile-tab-bar';
 import { HomeSwitcher } from '@/components/home-switcher';
 import { SignOutButton } from '@/components/sign-out-button';
 import { VerifyEmailNeeded } from '@/components/resend-verification';
+import { IdleLogout } from '@/components/idle-logout';
 
 function Maintenance() {
   return (
@@ -263,6 +264,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
       {/* App-style bottom navigation (mobile only). */}
       <MobileTabBar items={items} />
+      <IdleLogout />
     </div>
   );
 }

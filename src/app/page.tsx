@@ -1,6 +1,16 @@
 import Link from 'next/link';
+import { unstable_cache } from 'next/cache';
 import { Heart } from 'lucide-react';
 import { resolvePlanCatalogue } from '@/lib/plan-catalogue';
+
+// The plan catalogue rarely changes but is read on every anonymous landing-page
+// hit. Cache it (revalidated every 5 min, and busted immediately when an admin
+// edits a plan via revalidateTag('plans')) so the marketing page isn't gated on a
+// DB round-trip. The page stays dynamic for the CSP nonce; only this read is cached.
+const getCachedPlans = unstable_cache(() => resolvePlanCatalogue(), ['landing-plan-catalogue'], {
+  revalidate: 300,
+  tags: ['plans'],
+});
 
 // Rendered per-request so the nonce-based CSP (set in middleware) is applied to
 // the page's scripts; a static page would carry no matching nonce and its
@@ -25,7 +35,7 @@ function price(cents: number) {
 
 export default async function HomePage() {
   // Admin-editable commercial fields (name/price/description); inactive plans hidden.
-  const plans = (await resolvePlanCatalogue()).filter((p) => p.isActive);
+  const plans = (await getCachedPlans()).filter((p) => p.isActive);
   return (
     <main className="mx-auto max-w-6xl px-4 py-12">
       <header className="flex items-center justify-between">

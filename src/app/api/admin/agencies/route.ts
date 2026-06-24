@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireAdminPermission } from '@/lib/authz';
 import { handle, json } from '@/lib/http';
-import { runFreeChecks, agencyVerifyApiConfigured, lookupNpi } from '@/lib/agency-verification';
+import { runFreeChecks, agencyVerifyApiConfigured } from '@/lib/agency-verification';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,34 +31,33 @@ export function GET(req: Request) {
       include: { _count: { select: { members: true, households: true } } },
     });
 
-    // Auto NPI lookup against the free CMS NPPES registry for review (best-effort).
-    const rows = await Promise.all(
-      agencies.map(async (a) => ({
-        id: a.id,
-        name: a.name,
-        displayName: a.displayName,
-        status: a.verificationStatus,
-        submittedAt: a.submittedAt,
-        verifiedAt: a.verifiedAt,
-        reviewNote: a.reviewNote,
-        members: a._count.members,
-        homes: a._count.households,
-        details: {
-          legalName: a.legalName,
-          ein: a.ein,
-          npi: a.npi,
-          usState: a.usState,
-          licenseNumber: a.licenseNumber,
-          phone: a.phone,
-          addressLine: a.addressLine,
-          city: a.city,
-          postalCode: a.postalCode,
-          website: a.website,
-        },
-        checks: runFreeChecks(a),
-        npiLookup: a.npi ? await lookupNpi(a.npi) : null,
-      })),
-    );
+    // NPI registry lookups are NOT run here — that would fire one external HTTP
+    // call per agency on every list load. The reviewer triggers it per agency via
+    // GET /api/admin/agencies/[id]/npi.
+    const rows = agencies.map((a) => ({
+      id: a.id,
+      name: a.name,
+      displayName: a.displayName,
+      status: a.verificationStatus,
+      submittedAt: a.submittedAt,
+      verifiedAt: a.verifiedAt,
+      reviewNote: a.reviewNote,
+      members: a._count.members,
+      homes: a._count.households,
+      details: {
+        legalName: a.legalName,
+        ein: a.ein,
+        npi: a.npi,
+        usState: a.usState,
+        licenseNumber: a.licenseNumber,
+        phone: a.phone,
+        addressLine: a.addressLine,
+        city: a.city,
+        postalCode: a.postalCode,
+        website: a.website,
+      },
+      checks: runFreeChecks(a),
+    }));
 
     return json({ externalProviderConfigured: agencyVerifyApiConfigured, agencies: rows });
   });

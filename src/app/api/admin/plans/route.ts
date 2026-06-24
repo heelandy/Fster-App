@@ -6,6 +6,7 @@ import { PLANS } from '@/lib/plans';
 import { resolvePlanCatalogue } from '@/lib/plan-catalogue';
 import { getStripePriceId, isStripeConfigured } from '@/lib/config';
 import { syncStripePrice } from '@/lib/stripe-plans';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { readJson, mutationGuard } from '@/lib/api';
 import { RateLimits } from '@/lib/rate-limit';
@@ -90,6 +91,8 @@ export function PATCH(req: Request) {
       },
     });
     await logAdmin({ actorId: admin.id, action: 'PLAN_UPDATED', targetType: 'Plan', targetId: tier, metadata: changes });
+    // Bust the cached landing-page plan catalogue so the edit shows immediately.
+    revalidateTag('plans');
 
     // Optional Stripe price sync (real outward-facing writes). Reported back to the UI.
     let stripe: { ok: boolean; note: string } | null = null;

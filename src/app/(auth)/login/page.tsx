@@ -6,7 +6,8 @@ import { LoginForm } from '@/components/auth-forms';
 // Dynamic so the middleware nonce-based CSP applies to this page's scripts.
 export const dynamic = 'force-dynamic';
 
-export default function LoginPage() {
+export default function LoginPage({ searchParams }: { searchParams: { reason?: string } }) {
+  const timedOut = searchParams?.reason === 'timeout';
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -15,6 +16,11 @@ export default function LoginPage() {
         </Link>
         <div className="card">
           <h1 className="mb-6 text-xl font-semibold text-slate-900">Welcome back</h1>
+          {timedOut && (
+            <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              You were signed out after 2 minutes of inactivity. Please sign in again.
+            </p>
+          )}
           <Suspense fallback={null}>
             <LoginForm />
           </Suspense>

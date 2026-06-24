@@ -32,7 +32,6 @@ interface AgencyRow {
     website: string | null;
   };
   checks: Check[];
-  npiLookup: NpiLookup | null;
 }
 interface NpiLookup {
   found: boolean;
@@ -57,6 +56,15 @@ export function AdminAgencies() {
   const [rows, setRows] = useState<AgencyRow[] | null>(null);
   const [providerConfigured, setProviderConfigured] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // Per-agency NPI registry lookups, fetched on demand (not on list load).
+  const [npi, setNpi] = useState<Record<string, NpiLookup | 'loading' | null>>({});
+
+  async function checkNpi(id: string) {
+    setNpi((m) => ({ ...m, [id]: 'loading' }));
+    const r = await fetch(`/api/admin/agencies/${id}/npi`);
+    const d = r.ok ? await r.json().catch(() => ({})) : {};
+    setNpi((m) => ({ ...m, [id]: (d.npiLookup ?? { found: false }) as NpiLookup }));
+  }
 
   const load = useCallback(async () => {
     setRows(null);
@@ -191,27 +199,38 @@ export function AdminAgencies() {
               </div>
             </div>
 
-            {a.details.npi && (
-              <div className={`rounded-lg border p-3 text-sm ${a.npiLookup?.found ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
-                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {a.npiLookup?.found ? <ShieldCheck className="h-4 w-4 text-green-600" /> : <ShieldAlert className="h-4 w-4 text-amber-600" />}
-                  NPI registry (NPPES)
-                </p>
-                {a.npiLookup?.found ? (
-                  <p className="mt-1 text-slate-700">
-                    <span className="font-medium">{a.npiLookup.name || 'Registered'}</span>
-                    {a.npiLookup.type ? ` · ${a.npiLookup.type === 'NPI-2' ? 'organization' : 'individual'}` : ''}
-                    {a.npiLookup.city || a.npiLookup.state ? ` · ${[a.npiLookup.city, a.npiLookup.state].filter(Boolean).join(', ')}` : ''}
-                    {a.npiLookup.status ? ` · status ${a.npiLookup.status === 'A' ? 'active' : a.npiLookup.status}` : ''}
-                    {a.npiLookup.state && a.details.usState && a.npiLookup.state !== a.details.usState && (
-                      <span className="ml-1 font-medium text-amber-700">(state differs from submitted {a.details.usState})</span>
-                    )}
+            {a.details.npi && (() => {
+              const res = npi[a.id];
+              if (!res) {
+                return (
+                  <button onClick={() => checkNpi(a.id)} className="btn-secondary inline-flex items-center gap-1 text-xs">
+                    <ShieldCheck className="h-4 w-4" /> Check NPI registry (NPPES)
+                  </button>
+                );
+              }
+              if (res === 'loading') return <p className="text-xs text-slate-500">Checking NPI registry…</p>;
+              return (
+                <div className={`rounded-lg border p-3 text-sm ${res.found ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
+                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {res.found ? <ShieldCheck className="h-4 w-4 text-green-600" /> : <ShieldAlert className="h-4 w-4 text-amber-600" />}
+                    NPI registry (NPPES)
                   </p>
-                ) : (
-                  <p className="mt-1 text-amber-700">Not found in the NPPES registry — verify manually.</p>
-                )}
-              </div>
-            )}
+                  {res.found ? (
+                    <p className="mt-1 text-slate-700">
+                      <span className="font-medium">{res.name || 'Registered'}</span>
+                      {res.type ? ` · ${res.type === 'NPI-2' ? 'organization' : 'individual'}` : ''}
+                      {res.city || res.state ? ` · ${[res.city, res.state].filter(Boolean).join(', ')}` : ''}
+                      {res.status ? ` · status ${res.status === 'A' ? 'active' : res.status}` : ''}
+                      {res.state && a.details.usState && res.state !== a.details.usState && (
+                        <span className="ml-1 font-medium text-amber-700">(state differs from submitted {a.details.usState})</span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-amber-700">Not found in the NPPES registry — verify manually.</p>
+                  )}
+                </div>
+              );
+            })()}
 
             {a.reviewNote && (
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
