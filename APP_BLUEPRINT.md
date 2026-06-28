@@ -71,11 +71,25 @@ separate tenant-portal area at its own top-level path.
   per-user activity.
 - Append-only **audit log** tables (admin actions + security events): actor, action,
   target, old→new value, IP, timestamp. No edit/delete path exists for them.
-- Iterate locally with `prisma db push`; deploy with `prisma migrate deploy`.
-- For a tracked schema change against a real DB, generate the migration with
-  `migrate dev --create-only`, confirm the SQL is **purely additive** (CREATE/ADD, no
-  DROP/rename), then apply — so a data-loss step never slips through unreviewed. Additive
-  model adds (new table, nullable column, new enum) are safe; back-fill/renames need a plan.
+- **Pick ONE schema-apply workflow and use it in BOTH dev and prod.** Mixing
+  `prisma db push` (schema-as-source-of-truth, no history) with `prisma migrate` (versioned
+  history) causes drift: a column added by `db push` makes a later `migrate deploy` fail with
+  "already exists" (Prisma **P3009**), which then blocks every deploy. Two safe options:
+  (a) **db push everywhere** — fast, schema is the source of truth, the deploy `startCommand`
+  runs `prisma db push`; simplest pre-scale. (b) **migrations everywhere** — never `db push`
+  a shared DB; create every change with `migrate dev`. Don't half-use both. Redirect the
+  footgun npm scripts to the chosen command and record the rule in the project-guide file.
+- **Recovering a stuck migration:** make its SQL **idempotent** (`ADD COLUMN IF NOT EXISTS`,
+  `CREATE TABLE/INDEX IF NOT EXISTS`, and `DO $$ … EXCEPTION WHEN duplicate_object … END $$`
+  for enums/constraints), then clear the failed record with `migrate resolve --rolled-back`
+  (re-applies cleanly) or `--applied` (if the objects already exist).
+- Keep schema changes **purely additive** where possible (CREATE/ADD, nullable columns, new
+  enums are safe); back-fills/renames/drops need a deliberate plan — `--accept-data-loss` is
+  an explicit, reviewed choice, never a default.
+- **Index for the query shapes you actually run.** A composite `@@index([tenantId, status])`
+  serves `WHERE tenantId AND status` **and** `WHERE tenantId` (left-prefix), but not `status`
+  alone — match each index to a real filter combination. Single-column FK indexes aren't
+  enough once a table grows.
 
 ---
 
@@ -101,6 +115,18 @@ separate tenant-portal area at its own top-level path.
    (`tenant.orgId = …`) is set **only on approval**; the owner can **revoke** later,
    instantly cutting the org's access (queries are org-scoped). Never set the FK directly
    from an org-side action — that would expose private data without consent.
+
+   **Verification gate (gate acquisition, not sign-up):** when "anyone can register an org",
+   gate the org from ACQUIRING tenants until a platform admin verifies it's a real,
+   legitimate organization. Carry a `verificationStatus` enum
+   (UNVERIFIED→PENDING→VERIFIED/REJECTED) on the org + a `requireVerifiedOrg(ctx)` check on the
+   acquisition routes (request oversight / create tenant / place a record). An unverified org
+   can still sign in, brand itself, and invite staff. Capture legitimacy details at a dedicated
+   org sign-up, run **free deterministic checks** (format/enum/whitelist validations — e.g. a
+   valid jurisdiction, ID-number format) plus an **optional env-gated external-provider hook**
+   (no-op unless configured — keeps it free and secret-less by default), and surface everything
+   in an **admin review queue** for the human approve/reject decision (record an audit event +
+   a reviewer note the org sees so it can fix and resubmit).
 
 **Per-request caching:** wrap `requireUser()` and the tenant/org resolvers in React's
 `cache()` — via a tiny `requestCache` helper that falls back to identity outside the RSC
@@ -192,6 +218,17 @@ dynamically-computed xref offsets and ASCII sanitization — no heavy library. E
 - Generic `<CrudResource>` renders list + create/edit form from field/column defs
   (`text|textarea|date|datetime|number|money|select|childSelect`), so resource pages
   are declarative.
+- **White-label / per-tenant branding (multi-tenant):** let an org override `displayName`,
+  accent `brandColor`, and a `logo` (stored private, served **session-scoped** via an API
+  route — never by a client-supplied id). Apply it on the org's own surfaces AND to the
+  tenants it oversees. Override the **browser-tab favicon** per area with the Metadata API
+  (`generateMetadata` returning `icons`) — which requires the default favicon be
+  config-driven (`metadata.icons` + a `/public/favicon.ico`), NOT an `/app` file-convention
+  icon (those beat metadata and would block the override). Keep the global `brand-*` palette
+  as the default and apply the per-tenant colour via inline style, not a Tailwind theme swap.
+- **App icons without an image library:** when no rasterizer is installed, generate the
+  PNG/ICO icon set from math in pure Node (`zlib` for PNG; wrap a PNG in an ICO for the
+  favicon) — dependency-free and visually verifiable before committing.
 
 ---
 
@@ -203,6 +240,12 @@ dynamically-computed xref offsets and ASCII sanitization — no heavy library. E
   optional upload AV-scan + CAPTCHA (gated), private file storage with authed download.
 - Generic error responses; audit metadata carries no private PII.
 - CSV exports: neutralize formula injection (prefix `=+-@`-leading cells with `'`).
+- **Idle auto-logout:** a small client component tracks activity (mouse/key/scroll/touch),
+  warns near the end, and `signOut`s after an inactivity window — a UI layer on top of the
+  JWT's server-side `maxAge` (shared-device safety).
+- **Keep external API calls off the request/render path.** Never call a third-party API once
+  per row in a list/render handler (N calls × timeout = a page hostage to an external service).
+  Make it on-demand (a button hitting a per-id endpoint) or cache the result.
 
 ---
 
@@ -210,8 +253,10 @@ dynamically-computed xref offsets and ASCII sanitization — no heavy library. E
 
 Keep the monolith. Deploy the whole app to a Node host (Railway) with a managed
 Postgres service; put a CDN/DNS/WAF (Cloudflare) in front. Build = `prisma generate &&
-next build`; start = `prisma migrate deploy && next start`. CDN caches static assets,
-bypasses cache for `/api/*` and authenticated (cookie-bearing) requests. Document a
+next build`; the deploy `startCommand` applies the schema via your **single chosen** workflow
+(§4) then boots — e.g. `prisma db push && next start` (db-push approach) or
+`prisma migrate deploy && next start` (migrations approach), never a mix. CDN caches static
+assets, bypasses cache for `/api/*` and authenticated (cookie-bearing) requests. Document a
 folder→role mapping (frontend / backend / database) even though it deploys as one unit.
 
 ---
@@ -223,13 +268,37 @@ folder→role mapping (frontend / backend / database) even though it deploys as 
 - Definition of done for any batch: `tsc --noEmit` clean · unit tests pass · production
   build passes; then a concise summary of what shipped and what's deferred.
 - Keep a living spec/status file (PART-structured, with ✅/🟡/⬜/➖ markers) updated as
-  features land. Run a code review on the diff and save findings to `CODE_REVIEW.md`.
+  features land. Run a code review on the diff and save findings to `CODE_REVIEW.md`. Track
+  performance work in its own backlog doc (tiers: shipped / next / later).
+- Capture the **non-negotiable invariants + the chosen DB workflow** in a short project-guide
+  file (e.g. `CLAUDE.md`) at the repo root, so humans and AI agents don't reintroduce a footgun
+  (like running `migrate` against a db-push'd database, or settling secrets via the admin UI).
 - (Windows/OneDrive only) prepend Node to PATH, set `DATABASE_URL`, and kill node +
   delete the `.next` dir before building to avoid file-lock/EINVAL errors.
 
 ---
 
-## 15. Bootstrapping a new app from this blueprint
+## 15. Performance patterns
+
+- **Index to the query shape** (see §4): composite indexes matched to real `WHERE` combinations,
+  not just single-column FK indexes.
+- **Cache rarely-changing public reads.** Wrap them in `unstable_cache` with a `revalidate` +
+  a tag, and bust the tag (`revalidateTag`) when an admin edits the underlying data — keeps a
+  hot public page (pricing/landing) off the DB without going stale. The page can stay dynamic
+  (e.g. for a CSP nonce) while just the read is cached.
+- **Parallelize independent DB reads** with `Promise.all`; dedup repeated reads within a request
+  via the `requestCache` helper (don't re-fetch in the page what the layout already loaded).
+- **External calls on-demand, never per-row in a render path** (see §12).
+- **Connection pooling:** set an explicit `connection_limit`; add PgBouncer before running
+  multiple app instances against one Postgres.
+- **Cheap delivery:** long-cache content-hashed static assets at the CDN; an app-shell service
+  worker may cache static assets but **never** authed API/HTML (data-leak risk).
+- Keep a tracked **performance backlog** doc (shipped / next / later) so wins are prioritized
+  and revisited, like the living spec.
+
+---
+
+## 16. Bootstrapping a new app from this blueprint
 
 1. Scaffold Next.js + TS + Tailwind; add Prisma + Postgres; add NextAuth (credentials).
 2. Copy the `lib/` core: `http`, `authz` (capabilities + `requireUser`/`requireCapability`),

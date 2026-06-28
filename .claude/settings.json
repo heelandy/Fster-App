@@ -12,7 +12,10 @@
       "Bash(grep -rn \"migrate deploy\\\\|db push\\\\|prisma migrate\\\\|prisma db\" package.json railway.json railway.toml nixpacks.toml Procfile Dockerfile)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\)\")",
       "Bash(ls -1 railway.json railway.toml nixpacks.toml Procfile Dockerfile)",
-      "Bash(node -e \"const c=require\\('./railway.json'\\); console.log\\('valid JSON. startCommand =>', c.deploy.startCommand\\)\")"
+      "Bash(node -e \"const c=require\\('./railway.json'\\); console.log\\('valid JSON. startCommand =>', c.deploy.startCommand\\)\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('package.json valid. prisma scripts:'\\); for\\(const k of Object.keys\\(p.scripts\\)\\) if\\(k.startsWith\\('prisma'\\)||k==='build'\\) console.log\\('  '+k+' => '+p.scripts[k]\\)\")",
+      "Bash(node -e \"require\\('./railway.json'\\); console.log\\('railway.json valid'\\)\")",
+      "Bash(grep -nE \"^#{1,3} \" APP_BLUEPRINT.md)"
     ]
   }
 }
